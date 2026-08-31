@@ -1,8 +1,13 @@
 using UnityEngine;
 using System.Collections;
 
-public class NewMonoBehaviourScript : MonoBehaviour
+public class Bombero : MonoBehaviour
 {
+    public string nombreJugador;
+    public Color colorjugador;
+    public bool esMiTurno = false;
+    public Camera miCamara;
+    public int apDisponibles = 0;
 
     public KeyCode izq = KeyCode.LeftArrow;
     public KeyCode der = KeyCode.RightArrow;
@@ -18,6 +23,8 @@ public class NewMonoBehaviourScript : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        if (!esMiTurno) return;
+
         if (Input.GetKeyDown(izq) && bomberRot == null)
         {
             bomberRot = StartCoroutine(Rotate(-1)); // Gira el objeto 90 grados en el eje Y hacia la izquierda
@@ -49,6 +56,8 @@ public class NewMonoBehaviourScript : MonoBehaviour
 
         transform.position = targetPos; // Asegurarse de que la posición final sea exacta
         bomberMoving = null; // Reinicia la referencia a la corrutina
+
+        GastarAP(ReglasJuego.COSTO_MOVER_SIN_FUEGO);
     }
 
     private IEnumerator Rotate(int n)
@@ -68,5 +77,14 @@ public class NewMonoBehaviourScript : MonoBehaviour
 
         transform.rotation = targetPos; // Asegurarse de que la posición final sea exacta
         bomberRot = null; // Reinicia la referencia a la corrutina
+    }
+
+    void GastarAP(int costo){
+        apDisponibles -= costo;
+        
+        if (apDisponibles <= 0){
+            esMiTurno = false;
+            FindObjectOfType<PlayerManager>().SiguienteTurno();
+        }
     }
 }
