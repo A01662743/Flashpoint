@@ -1,0 +1,144 @@
+{
+    "turn": 12,
+    "phase": "AGENT_ACTION",
+    "current_agent": 3,
+    "game_status": "playing",
+
+    "grid": [
+        ["1100", "1000", "1000", "1000", "1001", "0100", "1000", "1001"],
+        ["0100", "0000", "0011", "0110", "0010", "0010", "0010", "0001"],
+        ["0000", "0000", "1000", "1000", "1000", "1001", "1100", "0001"],
+        ["0110", "0011", "0110", "0000", "0010", "0010", "0010", "0010"],
+        ["1100", "1000", "1000", "0000", "1001", "1100", "1001", "1011"],
+        ["0110", "0010", "0000", "0010", "0010", "0010", "0010", "0011"]
+    ],
+
+    "poi": [
+        {
+            "id": 1,
+            "position": [6, 7],
+            "status": "unknown",
+	        "result": "victim"
+        },
+        {
+            "id": 2,
+            "position": [4, 3],
+            "status": "known",
+	    "result": "victim"
+        },
+        {
+            "id": 3,
+            "position": [2, 6],
+            "result": "false_alarm"
+        }
+    ],
+
+    "fire": [
+        [2, 2],
+        [2, 3],
+        [3, 2],
+        [3, 3],
+        [4, 3],
+        [5, 3],
+        [4, 4],
+        [6, 5],
+        [7, 5],
+        [6, 6]
+    ],
+
+    "smoke": [
+    ],
+
+    "doors": [
+        {
+            "id": 1,
+            "between": [[3, 1], [4, 1]],
+            "status": "closed"
+        },
+        {
+            "id": 2,
+            "between": [[5, 2], [6, 2]],
+            "status": "closed"
+        },
+        {
+            "id": 3,
+            "between": [[8, 2], [8, 3]],
+            "status": "closed"
+        },
+        {
+            "id": 4,
+            "between": [[2, 3], [3, 3]],
+            "status": "closed"
+        },
+        {
+            "id": 5,
+            "between": [[6, 4], [7, 4]],
+            "status": "closed"
+        },
+        {
+            "id": 6,
+            "between": [[4, 4], [4, 5]],
+            "status": "closed"
+        },
+        {
+            "id": 7,
+            "between": [[5, 6], [6, 6]],
+            "status": "closed"
+        },
+        {
+            "id": 8,
+            "between": [[7, 6], [8, 6]],
+            "status": "closed"
+        }
+    ],
+
+    "walls":[
+    ],
+
+    "entrances": [
+        [1, 3],
+        [6, 1],
+        [8, 4],
+        [3, 6]
+    ],
+
+    "agents": [
+        {
+            "id": 1,
+            "position": [3, 4],
+            "ap": 4,
+            "carrying_victim": false,
+            "status": "active",
+            "reserved_target": null
+        },
+        {
+            "id": 2,
+            "position": [5, 7],
+            "ap": 2,
+            "carrying_victim": true,
+            "status": "active",
+            "reserved_target": null
+        },
+        {
+            "id": 3,
+            "position": [2, 3],
+            "ap": 6,
+            "carrying_victim": false,
+            "reserved_target": 2
+        }
+    ],
+
+    "reservations": [
+        {
+            "target_type": "poi",
+            "target_id": 2,
+            "agent_id": 3
+        }
+    ],
+
+    "game": {
+        "rescued": 3,
+        "lost": 1,
+        "damage": 8
+    }
+}

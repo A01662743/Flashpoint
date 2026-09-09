@@ -233,6 +233,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 159383831619752043}
+  - component: {fileID: 3216214962479370956}
   m_Layer: 0
   m_Name: Puerta_con_pared
   m_TagString: Untagged
@@ -258,6 +259,20 @@ Transform:
   - {fileID: 6812086244432989071}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3216214962479370956
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7498240703875615745}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 78c9630db8c337c4e9cfaacbd200d5b5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DoorIdentity
+  doorId: 0
+  gridPosition: {x: 0, y: 0}
 --- !u!1001 &2122286998710910625
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -335,6 +350,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 46547caba5de923468c82ad745a679ae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AbrirPuerta
+  keyToPress: 101
 --- !u!4 &6812086244432989071 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4898373363276657966, guid: 9cf8b668f80829b459985e249859bd7d, type: 3}
