@@ -1573,6 +1573,7 @@ GameObject:
   m_Component:
   - component: {fileID: 281438185}
   - component: {fileID: 281438184}
+  - component: {fileID: 281438186}
   m_Layer: 0
   m_Name: GameStateManager
   m_TagString: Untagged
@@ -1593,7 +1594,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameStateManager
   initialJsonFileName: Initial_State
-  smokeSpawnManager: {fileID: 792724704}
+  smokeSpawnManager: {fileID: 0}
   POIChoreManager: {fileID: 547627442}
 --- !u!4 &281438185
 Transform:
@@ -1610,6 +1611,20 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &281438186
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 281438183}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b707d87dcf7461409271025f0090583, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SmokeSpawnManager
+  stateManager: {fileID: 281438184}
+  visualizerObject: {fileID: 792724705}
 --- !u!1001 &314817803
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1837,13 +1852,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 330585543}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 45, z: 0}
+  m_LocalRotation: {x: 0.5735764, y: 0, z: 0, w: 0.8191521}
+  m_LocalPosition: {x: 0, y: 35, z: -14}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 70, y: 0, z: 0}
 --- !u!114 &330585547
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2669,10 +2684,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::POIChoreManager
   stateManager: {fileID: 281438184}
-  visualizerObject: {fileID: 0}
-  minX: 0
+  visualizerObject: {fileID: 792724705}
+  minX: 1
   maxX: 8
-  minY: 0
+  minY: 1
   maxY: 6
 --- !u!4 &547627443
 Transform:
@@ -3354,7 +3369,6 @@ GameObject:
   m_Component:
   - component: {fileID: 792724703}
   - component: {fileID: 792724705}
-  - component: {fileID: 792724704}
   m_Layer: 0
   m_Name: GameVisualizer
   m_TagString: Untagged
@@ -3377,20 +3391,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &792724704
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 792724702}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9b707d87dcf7461409271025f0090583, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SmokeSpawnManager
-  stateManager: {fileID: 281438184}
-  visualizerObject: {fileID: 792724705}
 --- !u!114 &792724705
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3405,13 +3405,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnityGameVisualizer
   smokePrefab: {fileID: 2416285445023993149, guid: 7b6aeead69bd4684a90638981ace6eb4, type: 3}
   firePrefab: {fileID: 2738819096570323180, guid: a53c7c1864bbd8e4eaafd4d81a666b76, type: 3}
-  damagedWallEffectPrefab: {fileID: 0}
-  destroyedDoorEffectPrefab: {fileID: 0}
-  POIPrefab: {fileID: 0}
+  POIPrefab: {fileID: 6076149338525379522, guid: a30d0f32591cc3d4dbe372ec7981b738, type: 3}
   cellSize: 5
   boardSizeY: 6
   boardSizeX: 8
   is2D: 0
+  stateManager: {fileID: 0}
 --- !u!1001 &795521274
 PrefabInstance:
   m_ObjectHideFlags: 0

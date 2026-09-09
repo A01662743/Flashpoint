@@ -8,108 +8,128 @@ public class SmokeSpawnManager : MonoBehaviour
     public MonoBehaviour visualizerObject; // Objeto que implementa IGameVisualizer
     private IGameVisualizer visualizer => visualizerObject as IGameVisualizer;
 
-    // Convención única del proyecto: coordenadas siempre en (x, y), Base-1. x avanza en horizontal, y avanza en vertical.
-    // Direcciones de propagación como (dx, dy): Norte, Sur, Oeste, Este
     private readonly int[][] directions = new int[][]
     {
-        new int[] { 0, -1 }, // Norte (y disminuye)
-        new int[] { 0, 1 },  // Sur   (y aumenta)
-        new int[] { -1, 0 }, // Oeste (x disminuye)
-        new int[] { 1, 0 }   // Este  (x aumenta)
+        new int[] { 0, -1 }, // Norte
+        new int[] { 0, 1 },  // Sur
+        new int[] { -1, 0 }, // Oeste
+        new int[] { 1, 0 }   // Este
     };
 
-    /// <summary>
-    /// Punto de entrada principal para la lógica de Spawn Smoke (Recibe coordenadas Base-1: x, y)
-    /// </summary>
     public void ProcessSmokeSpawn(int targetX, int targetY)
     {
         GameState state = stateManager.CurrentState;
         if (state == null) return;
 
-        // 1. Verificar si ya hay otro fuego/humo en la casilla
+        // 1. Si hay fuego -> Detona explosión
         if (IsFireAt(targetX, targetY))
         {
-            // 1.c. Si hay fuego -> Explosión
             TriggerExplosion(targetX, targetY);
         }
+        // 2. Si hay humo -> Transforma el humo en fuego
         else if (IsSmokeAt(targetX, targetY))
         {
-            // 1.b. Si hay humo -> Convertir a Fuego
-            RemoveSmokeAt(targetX, targetY);
             AddFire(targetX, targetY);
-            visualizer?.PromoteSmokeToFireVisual(targetX, targetY);
         }
+        // 3. Si la casilla está vacía -> Spawnea humo únicamente
         else
         {
-            // 1.a. Si no hay nada -> Añadir humo
             state.smoke.Add(new int[] { targetX, targetY });
             visualizer?.SpawnSmokeVisual(targetX, targetY);
         }
+
+        // Procesa la reacción en cadena para humos contiguos al fuego
+        ProcessSmokeIgnitionChain();
     }
 
     // ========================================================================
-    // AÑADIR FUEGO Y ELIMINACIÓN
+    // AÑADIR FUEGO Y ELIMINACIÓN DE ENTIDADES/HUMO
     // ========================================================================
 
     private void AddFire(int x, int y)
     {
         GameState state = stateManager.CurrentState;
-        state.fire.Add(new int[] { x, y });
-        visualizer?.SpawnFireVisual(x, y);
 
-        // Verificar si hay POI o Agentes en la casilla para eliminarlos
+        // Si ya hay humo en esta casilla, lo removemos tanto del estado como de la escena
+        if (IsSmokeAt(x, y))
+        {
+            RemoveSmokeAt(x, y);
+            visualizer?.RemoveSmokeVisual(x, y);
+        }
+
+        // Agregar fuego al estado si no existe previamente
+        if (!IsFireAt(x, y))
+        {
+            state.fire.Add(new int[] { x, y });
+            visualizer?.SpawnFireVisual(x, y);
+        }
+
+        // Eliminar o procesar POIs y Agentes que toquen el fuego
         CheckAndEliminateEntities(x, y);
     }
 
     private void CheckAndEliminateEntities(int x, int y)
     {
         GameState state = stateManager.CurrentState;
+        if (state == null) return;
 
-        // Eliminar POIs
-        for (int i = state.poi.Count - 1; i >= 0; i--)
+        // 1. Eliminar POIs en las coordenadas
+        if (state.poi != null)
         {
-            if (state.poi[i].position[0] == x && state.poi[i].position[1] == y)
+            for (int i = state.poi.Count - 1; i >= 0; i--)
             {
-                POI removedPoi = state.poi[i];
-                state.poi.RemoveAt(i);
-
-                if (removedPoi.result == "victim")
+                if (state.poi[i].position != null && 
+                    state.poi[i].position.Length >= 2 &&
+                    state.poi[i].position[0] == x && 
+                    state.poi[i].position[1] == y)
                 {
-                    state.game.lost++;
-                }
+                    POI poiAfectado = state.poi[i];
+                    Debug.Log($"[DEBUG] POI a eliminar: {poiAfectado.id} | visualizer null? {visualizer == null}");
 
-                visualizer?.RemovePOIVisual(removedPoi.id, removedPoi.result);
+                    // Notificar primero al visualizador antes de remover del estado
+                    visualizer?.RemovePOIVisual(poiAfectado.id);
+
+                    if (poiAfectado.result == "victim" && state.game != null)
+                    {
+                        state.game.lost++;
+                        Debug.Log($"[Propagación Fuego] Víctima perdida en ({x}, {y}). Total perdidas: {state.game.lost}");
+                    }
+
+                    state.poi.RemoveAt(i);
+                }
             }
         }
 
-        // Eliminar/Reposicionar Agentes
-        for (int i = state.agents.Count - 1; i >= 0; i--)
+        // 2. Eliminar / Dejar fuera de combate a los Agentes
+        if (state.agents != null)
         {
-            if (state.agents[i].position[0] == x && state.agents[i].position[1] == y)
+            for (int i = state.agents.Count - 1; i >= 0; i--)
             {
-                Agent agent = state.agents[i];
-                agent.status = "knocked_out";
-                visualizer?.EliminateAgentVisual(agent.id);
+                if (state.agents[i].position != null && 
+                    state.agents[i].position.Length >= 2 &&
+                    state.agents[i].position[0] == x && 
+                    state.agents[i].position[1] == y)
+                {
+                    Agent agent = state.agents[i];
+                    agent.status = "knocked_out";
+                    visualizer?.EliminateAgentVisual(agent.id);
+                    Debug.Log($"[Propagación Fuego] Agente ID {agent.id} alcanzado por fuego en ({x}, {y}).");
+                }
             }
         }
     }
 
     // ========================================================================
-    // LÓGICA DE EXPLOSIÓN INDEPENDIENTE POR DIRECCIÓN
+    // EXPLOSIÓN
     // ========================================================================
 
     private void TriggerExplosion(int originX, int originY)
     {
-        // 1. Transformar el origen en fuego si no lo era ya
         if (!IsFireAt(originX, originY))
         {
-            if (IsSmokeAt(originX, originY)) RemoveSmokeAt(originX, originY);
             AddFire(originX, originY);
         }
 
-        // 2. Ejecutar cada dirección de manera totalmente independiente.
-        // Al llamarse en un bucle simple, si la primera dirección (ej. Norte)
-        // se detiene por pared, las llamadas a Este, Sur y Oeste corren con su propio 'continueLine'.
         for (int d = 0; d < directions.Length; d++)
         {
             PropagateExplosionLine(originX, originY, directions[d][0], directions[d][1]);
@@ -122,7 +142,6 @@ public class SmokeSpawnManager : MonoBehaviour
         int currentX = startX;
         int currentY = startY;
 
-        // Estado de continuidad local y exclusivo para esta dirección
         bool continueLine = true;
 
         while (continueLine)
@@ -130,25 +149,33 @@ public class SmokeSpawnManager : MonoBehaviour
             int nextX = currentX + dx;
             int nextY = currentY + dy;
 
-            // 3.a. Verificar si la siguiente casilla está dentro de los límites del tablero (Base-1)
-            if (!IsWithinLimits(nextX, nextY))
+            if (!IsWithinLimits(currentX, currentY))
             {
                 continueLine = false;
                 break;
             }
 
-            // 1. Verificar Paredes usando el grid y la lista 'walls' (bit en la dirección del movimiento)
+            bool isNextOutside = !IsWithinLimits(nextX, nextY);
+
+            if (isNextOutside && !IsOneStepOutsideGrid(nextX, nextY))
+            {
+                continueLine = false;
+                break;
+            }
+
             int wallBitIndex = GetWallBitIndex(dx, dy);
 
-            if (HasWallInGrid(currentX, currentY, wallBitIndex))
+            if (IsWithinLimits(currentX, currentY) && HasWallInGrid(currentX, currentY, wallBitIndex))
             {
                 Wall damagedWall = GetWallInDamagedList(currentX, currentY, nextX, nextY);
 
                 if (damagedWall != null)
                 {
-                    // 1.a.i. Si ya estaba en 'walls' -> Estaba dañada. Se destruye totalmente.
                     RemoveWallFromGrid(currentX, currentY, wallBitIndex);
-                    RemoveWallFromGrid(nextX, nextY, GetOppositeBitIndex(wallBitIndex));
+                    if (IsWithinLimits(nextX, nextY))
+                    {
+                        RemoveWallFromGrid(nextX, nextY, GetOppositeBitIndex(wallBitIndex));
+                    }
 
                     state.walls.Remove(damagedWall);
                     state.game.damage++;
@@ -159,7 +186,6 @@ public class SmokeSpawnManager : MonoBehaviour
                 }
                 else
                 {
-                    // 1.a.ii. Si NO estaba en 'walls' -> Estaba sana. Pasa a estar dañada.
                     Wall newDamagedWall = new Wall
                     {
                         id = GetNextWallId(),
@@ -179,16 +205,13 @@ public class SmokeSpawnManager : MonoBehaviour
                 }
             }
 
-            // 2. Verificar Puertas
             Door door = GetDoorBetween(currentX, currentY, nextX, nextY);
             if (door != null)
             {
                 if (door.status == "closed")
                 {
                     door.status = "destroyed";
-                    state.game.damage++;
-                    state.game.damage++;
-                    Debug.Log($"[SmokeSpawn] Puerta ID {door.id} cerrada entre ({currentX},{currentY}) y ({nextX},{nextY}) -> destruida por la explosión.");
+                    state.game.damage += 2;
                     visualizer?.DestroyDoorVisual(door.id);
                     continueLine = false;
                     break;
@@ -196,57 +219,146 @@ public class SmokeSpawnManager : MonoBehaviour
                 else
                 {
                     door.status = "destroyed";
-                    state.game.damage++;
-                    state.game.damage++;
-                    Debug.Log($"[SmokeSpawn] Puerta ID {door.id} entre ({currentX},{currentY}) y ({nextX},{nextY}) está '{door.status}', se destruye y la línea de fuego continúa.");
+                    state.game.damage += 2;
                     visualizer?.DestroyDoorVisual(door.id);
                 }
             }
 
-            // 3. Evaluar fuego/humo en la casilla objetivo
             if (IsFireAt(nextX, nextY))
             {
-                // Si ya hay fuego, la onda de calor atraviesa la celda y sigue propagándose sin frenar
                 visualizer?.TriggerHeatUpAnimation(nextX, nextY);
                 currentX = nextX;
                 currentY = nextY;
+
+                if (isNextOutside)
+                {
+                    continueLine = false;
+                }
             }
             else
             {
-                bool hadSmoke = IsSmokeAt(nextX, nextY);
-
-                // Si hay humo, lo remueve del estado antes de encender el fuego
-                if (hadSmoke)
-                {
-                    RemoveSmokeAt(nextX, nextY);
-                }
-
-                // Enciende fuego en la nueva celda (vacía o donde había humo)
                 AddFire(nextX, nextY);
-
-                if (hadSmoke)
-                {
-                    // Notifica al visualizer para que destruya el GameObject de humo
-                    // y deje el de fuego en su lugar (evita humo "fantasma" en escena)
-                    visualizer?.PromoteSmokeToFireVisual(nextX, nextY);
-                }
-
-                // Al depositar fuego en la primera casilla sin fuego, la onda expansiva se consume en esta línea
                 continueLine = false;
             }
         }
     }
 
+    private bool IsOneStepOutsideGrid(int x, int y)
+    {
+        bool validX = x >= 0 && x <= 9; 
+        bool validY = y >= 0 && y <= 7;
+        return validX && validY;
+    }
+
     // ========================================================================
-    // FUNCIONES AUXILIARES DE BÚSQUEDA Y VALIDACIÓN
-    // Convención única: todo recibe (x, y) Base-1.
-    // La única conversión a los índices internos de la matriz ocurre dentro
-    // de IsWithinLimits, HasWallInGrid y RemoveWallFromGrid, de forma idéntica.
+    // REACCIÓN EN CADENA DE IGNICIÓN DE HUMO
     // ========================================================================
 
-    /// <summary>
-    /// Evalúa si las coordenadas (x, y) Base-1 están dentro de la matriz
-    /// </summary>
+    public void ProcessSmokeIgnitionChain()
+    {
+        GameState state = stateManager.CurrentState;
+        if (state == null || state.smoke == null || state.smoke.Count == 0) return;
+
+        Queue<int[]> newlyCreatedFires = new Queue<int[]>();
+        List<int[]> currentSmokes = new List<int[]>(state.smoke);
+
+        foreach (int[] smokePos in currentSmokes)
+        {
+            int sx = smokePos[0];
+            int sy = smokePos[1];
+
+            if (TryIgniteSmoke(sx, sy))
+            {
+                newlyCreatedFires.Enqueue(new int[] { sx, sy });
+            }
+        }
+
+        while (newlyCreatedFires.Count > 0)
+        {
+            int[] currentFire = newlyCreatedFires.Dequeue();
+            int fx = currentFire[0];
+            int fy = currentFire[1];
+
+            int[][] adjDirections = new int[][]
+            {
+                new int[] { fx, fy + 1 },
+                new int[] { fx - 1, fy },
+                new int[] { fx, fy - 1 },
+                new int[] { fx + 1, fy }
+            };
+
+            foreach (int[] neighborPos in adjDirections)
+            {
+                int nx = neighborPos[0];
+                int ny = neighborPos[1];
+
+                if (IsSmokeAt(nx, ny) && CanFireReachSmoke(fx, fy, nx, ny))
+                {
+                    PromoteSmokeToFire(nx, ny);
+                    newlyCreatedFires.Enqueue(new int[] { nx, ny });
+                }
+            }
+        }
+    }
+
+    private bool TryIgniteSmoke(int sx, int sy)
+    {
+        int[][] adjDirections = new int[][]
+        {
+            new int[] { sx, sy + 1 },
+            new int[] { sx - 1, sy },
+            new int[] { sx, sy - 1 },
+            new int[] { sx + 1, sy }
+        };
+
+        foreach (int[] dir in adjDirections)
+        {
+            int fx = dir[0];
+            int fy = dir[1];
+
+            if (IsFireAt(fx, fy) && CanFireReachSmoke(fx, fy, sx, sy))
+            {
+                PromoteSmokeToFire(sx, sy);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool CanFireReachSmoke(int fireX, int fireY, int smokeX, int smokeY)
+    {
+        int wallBitIndex = -1;
+
+        if (fireY > smokeY) wallBitIndex = 0;      
+        else if (fireX < smokeX) wallBitIndex = 1; 
+        else if (fireY < smokeY) wallBitIndex = 2; 
+        else if (fireX > smokeX) wallBitIndex = 3; 
+
+        if (HasWallInGrid(smokeX, smokeY, wallBitIndex))
+        {
+            return false;
+        }
+
+        Door door = GetDoorBetween(smokeX, smokeY, fireX, fireY);
+        if (door != null && door.status == "closed")
+        {
+            return false; 
+        }
+
+        return true;
+    }
+
+    private void PromoteSmokeToFire(int x, int y)
+    {
+        AddFire(x, y);
+        Debug.Log($"[Reacción en Cadena] Humo en ({x}, {y}) se convirtió en Fuego.");
+    }
+
+    // ========================================================================
+    // MÉTODOS AUXILIARES Y BÚSQUEDAS
+    // ========================================================================
+
     private bool IsWithinLimits(int x, int y)
     {
         GameState state = stateManager.CurrentState;
@@ -288,14 +400,12 @@ public class SmokeSpawnManager : MonoBehaviour
         return coord[0] == x && coord[1] == y;
     }
 
-    // Mapeo de dirección a índice del string de 4 bits: orden (arriba, izquierda, abajo, derecha)
-    // es decir (0: Norte, 1: Oeste, 2: Sur, 3: Este)
     private int GetWallBitIndex(int dx, int dy)
     {
-        if (dx == 0 && dy == -1) return 0; // Norte  (arriba)
-        if (dx == -1 && dy == 0) return 1; // Oeste  (izquierda)
-        if (dx == 0 && dy == 1)  return 2; // Sur    (abajo)
-        if (dx == 1 && dy == 0)  return 3; // Este   (derecha)
+        if (dx == 0 && dy == -1) return 0; 
+        if (dx == -1 && dy == 0) return 1; 
+        if (dx == 0 && dy == 1)  return 2; 
+        if (dx == 1 && dy == 0)  return 3; 
         return -1;
     }
 
@@ -304,11 +414,6 @@ public class SmokeSpawnManager : MonoBehaviour
         return (bitIndex + 2) % 4;
     }
 
-    /// <summary>
-    /// Recibe (x, y) Base-1 y los convierte a los índices internos Base-0 de 'grid'
-    /// para leer el bit de pared. Usa la misma conversión (yIndex = y-1, xIndex = x-1)
-    /// que RemoveWallFromGrid.
-    /// </summary>
     private bool HasWallInGrid(int x, int y, int bitIndex)
     {
         if (!IsWithinLimits(x, y)) return false;
@@ -320,11 +425,6 @@ public class SmokeSpawnManager : MonoBehaviour
         return cellBits[bitIndex] == '1';
     }
 
-    /// <summary>
-    /// Recibe (x, y) Base-1 y los convierte a los índices internos Base-0 de 'grid'
-    /// para modificar el bit de pared. Usa la misma conversión (yIndex = y-1, xIndex = x-1)
-    /// que HasWallInGrid.
-    /// </summary>
     private void RemoveWallFromGrid(int x, int y, int bitIndex)
     {
         if (!IsWithinLimits(x, y)) return;

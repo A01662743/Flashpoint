@@ -110,7 +110,7 @@ SphereCollider:
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 3
   m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
@@ -131,6 +131,10 @@ MonoBehaviour:
   amplitude: 0.35
   frequency: 1
   num: 0
+  duracionCrecimiento: 0.2
+  duracionEncojimiento: 0.2
+  tiempoDeEspera: 0.2
+  multiplicadorEscala: 2
 --- !u!1001 &9210056308538204469
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -96,6 +96,23 @@ public class GameStateManager : MonoBehaviour
         {
             LoadGameState(jsonFile.text);
             Debug.Log($"[GameStateManager] JSON inicial '{initialJsonFileName}' cargado con éxito.");
+
+            // Asignar resultado aleatorio respetando contadores para cada POI del JSON
+            if (CurrentState != null && CurrentState.poi != null)
+            {
+                foreach (POI poi in CurrentState.poi)
+                {
+                    string res = POIChoreManager.ResultadoRand();
+
+                    if (res == "ERROR")
+                    {
+                        Debug.LogError("[GameStateManager] Se interrumpió la asignación de resultados en los POIs iniciales.");
+                        break;
+                    }
+
+                    poi.result = res;
+                }
+            }
         }
         else
         {

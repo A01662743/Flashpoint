@@ -84,6 +84,8 @@ public class POIChoreManager : MonoBehaviour
                 result = resultadoAleatorio
             };
 
+            visualizer?.SpawnPOIVisual(randomX, randomY, nuevoPoiRevelado.id);
+
             if (currentState.poi == null) currentState.poi = new List<POI>();
             currentState.poi.Add(nuevoPoiRevelado);
 
@@ -96,6 +98,7 @@ public class POIChoreManager : MonoBehaviour
             else
             {
                 Debug.Log("[POI Manager] False alarm revelada.");
+                visualizer?.RemovePOIVisual(nuevoPoiRevelado.id);
             }
 
             return; // Terminar ejecución
@@ -154,7 +157,7 @@ public class POIChoreManager : MonoBehaviour
         return maxId + 1;
     }
 
-    private string ResultadoRand(){
+    public string ResultadoRand(){
         string resultadoAleatorio = Random.value > 0.5f ? "victim" : "false_alarm";
 
         if (FA_countdown <= 0 && Vic_countdown <= 0)
@@ -167,11 +170,13 @@ public class POIChoreManager : MonoBehaviour
         if (resultadoAleatorio == "false_alarm" && FA_countdown <= 0)
         {
             resultadoAleatorio = "victim";
+            Vic_countdown--;
         }
         // 3. De igual manera, si cayó en victim pero ya no quedan, forzar a false_alarm
         else if (resultadoAleatorio == "victim" && Vic_countdown <= 0)
         {
             resultadoAleatorio = "false_alarm";
+            FA_countdown--;
         }
         return resultadoAleatorio;
     }

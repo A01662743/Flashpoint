@@ -109,45 +109,30 @@
             "position": [0, 3],
             "ap": 4,
             "carrying_victim": false,
-            "status": "active",
-            "reserved_target": null
         },
         {
             "id": 2,
             "position": [3, 7],
             "ap": 2,
             "carrying_victim": false,
-            "status": "active",
-            "reserved_target": null
         },
         {
             "id": 3,
             "position": [6, 0],
             "ap": 6,
             "carrying_victim": false,
-            "reserved_target": null
         },
         {
             "id": 4,
             "position": [9, 4],
             "ap": 6,
             "carrying_victim": false,
-            "reserved_target": null
         },
         {
             "id": 5,
-            "position": [9, 6],
+            "position": [7, 6],
             "ap": 6,
             "carrying_victim": false,
-            "reserved_target": null
-        }
-    ],
-
-    "reservations": [
-        {
-            "target_type": "poi",
-            "target_id": 2,
-            "agent_id": 3
         }
     ],
 
