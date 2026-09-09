@@ -10,48 +10,54 @@ public class Fuego : MonoBehaviour
     public float frequency = 1.0f;   // Velocidad de la oscilación
     private Vector3 startPos;
     public int num = 0;
-    public static event Action<int> OnObjetoTocado;
 
     [Header("Configuración de Escala")]
-    [SerializeField] private Vector3 escalaMaxima = new Vector3(1000f, 1000f, 1000f);
-    [SerializeField] private float duracionCrecimiento = 1.0f;
-    [SerializeField] private float duracionEncojimiento = 1.0f;
+    [SerializeField] private float duracionCrecimiento = 0.2f;
+    [SerializeField] private float duracionEncojimiento = 0.2f;
     [SerializeField] private float tiempoDeEspera = 0.2f;
-
-    private Vector3 escalaOriginal;
-    private Coroutine corrutinaEscalado;
-
+    [Header("Configuración de Escala")]
+    [SerializeField] private float multiplicadorEscala = 2.0f; // Crecerá al doble (200%)
     private void Awake()
     {
         escalaOriginal = transform.localScale;
     }
 
     // Método público para iniciar el proceso
+
+    private Vector3 escalaOriginal;
+    private Coroutine corrutinaEscalado;
+
     public void IniciarEfectoEscalado()
-{
-    Debug.Log($"[FUEGO] IniciarEfectoEscalado() ejecutado directamente en el GameObject: '{gameObject.name}'");
-
-    if (corrutinaEscalado != null)
     {
-        StopCoroutine(corrutinaEscalado);
-    }
+        Debug.Log($"[FUEGO] IniciarEfectoEscalado() ejecutado en: '{gameObject.name}'");
 
-    corrutinaEscalado = StartCoroutine(RutinaAgrandarYEncoger());
-}
+        // Guardamos la escala real actual del objeto justo antes de animar
+        escalaOriginal = transform.localScale;
+
+        if (corrutinaEscalado != null)
+        {
+            StopCoroutine(corrutinaEscalado);
+        }
+
+        corrutinaEscalado = StartCoroutine(RutinaAgrandarYEncoger());
+    }
 
     private IEnumerator RutinaAgrandarYEncoger()
     {
-        // 1. Fase de crecimiento
-        yield return StartCoroutine(CambiarEscala(escalaOriginal, escalaMaxima, duracionCrecimiento));
+        Vector3 escalaObjetivo = escalaOriginal * multiplicadorEscala;
 
-        // Pausa opcional en el punto máximo
+        Debug.Log($"[FUEGO] Escalando desde {escalaOriginal} hasta {escalaObjetivo}");
+
+        // 1. Fase de crecimiento
+        yield return StartCoroutine(CambiarEscala(escalaOriginal, escalaObjetivo, duracionCrecimiento));
+
         if (tiempoDeEspera > 0f)
         {
             yield return new WaitForSeconds(tiempoDeEspera);
         }
 
-        // 2. Fase de retorno a tamaño original
-        yield return StartCoroutine(CambiarEscala(escalaMaxima, escalaOriginal, duracionEncojimiento));
+        // 2. Fase de retorno
+        yield return StartCoroutine(CambiarEscala(escalaObjetivo, escalaOriginal, duracionEncojimiento));
 
         corrutinaEscalado = null;
     }
