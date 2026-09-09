@@ -26,34 +26,24 @@ public class GameStateManager : MonoBehaviour
 
     private void Start()
     {
-        // Carga el estado inicial al arrancar la escena
         LoadInitialState();
     }
 
     private void Update()
     {
-        // Al presionar la tecla X en el teclado
         if (Input.GetKeyDown(KeyCode.X))
         {
             TriggerSmokeProcess();
         }
     }
 
-    /// <summary>
-    /// Dispara el proceso de generación/propagación de humo y fuego.
-    /// Convención única del proyecto: coordenadas siempre en (x, y), Base-1. x avanza en horizontal, y avanza en vertical.
-    /// </summary>
     public void TriggerSmokeProcess()
     {
         if (smokeSpawnManager != null)
         {
             Debug.Log("[GameManager] Presionada tecla X: Ejecutando ProcessSpawnSmoke()...");
-
-            // Tablero: x va de 1 a 8, y va de 1 a 6
-            // Random.Range para int es exclusivo en el máximo (1 a 9 -> 1..8) y (1 a 7 -> 1..6)
-            int x = Random.Range(1, 9); // x: 1 a 8
-            int y = Random.Range(1, 7); // y: 1 a 6
-
+            int x = Random.Range(1, 9);
+            int y = Random.Range(1, 7);
             Debug.Log($"[GameManager] Coordenadas generadas: X {x}, Y {y}");
             smokeSpawnManager.ProcessSmokeSpawn(x, y);
         }
@@ -64,12 +54,8 @@ public class GameStateManager : MonoBehaviour
         Debug.LogWarning("Finalizado el ciclo smoke spawn");
     }
 
-    /// <summary>
-    /// Lee el archivo JSON base desde la carpeta Resources
-    /// </summary>
     public void LoadInitialState()
     {
-        // Carga el archivo desde Assets/Resources/Initial_State.json
         TextAsset jsonFile = Resources.Load<TextAsset>(initialJsonFileName);
 
         if (jsonFile != null)
@@ -83,17 +69,21 @@ public class GameStateManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Deserializa una cadena de texto JSON y actualiza el estado interno
-    /// </summary>
     public void LoadGameState(string jsonString)
     {
         try
         {
             CurrentState = Newtonsoft.Json.JsonConvert.DeserializeObject<GameState>(jsonString);
 
-            // Opcional: Generar la representación visual inicial en el mapa
-            // BuildInitialMapVisuals();
+            Bombero[] bomberos = FindObjectsOfType<Bombero>();
+            foreach (Bombero b in bomberos)
+            {
+                Agent agenteData = CurrentState.agents.Find(a => a.id == b.agentId);
+                if (agenteData != null)
+                {
+                    b.SincronizarPosicionInicial(agenteData.position[0], agenteData.position[1]);
+                }
+            }
         }
         catch (System.Exception e)
         {
@@ -104,26 +94,14 @@ public class GameStateManager : MonoBehaviour
     private void OnGameStateUpdated()
     {
         // Aquí puedes mandar llamar funciones de actualización de la escena
-        // Por ejemplo: RenderMap(), UpdateAgentsPositions(), etc.
     }
 
-    // ========================================================================
-    // MÉTODOS DE ACCESO / HELPER (Para usar desde otros scripts externamente)
-    // Convención única: siempre (x, y) Base-1.
-    // ========================================================================
-
-    /// <summary>
-    /// Retorna los datos de un agente por su ID
-    /// </summary>
     public Agent GetAgentById(int agentId)
     {
         if (CurrentState == null) return null;
         return CurrentState.agents.Find(a => a.id == agentId);
     }
 
-    /// <summary>
-    /// Verifica si hay fuego en una coordenada específica (x, y) Base-1
-    /// </summary>
     public bool HasFireAt(int x, int y)
     {
         if (CurrentState == null || CurrentState.fire == null) return false;
@@ -136,11 +114,6 @@ public class GameStateManager : MonoBehaviour
         return false;
     }
 
-    /// <summary>
-    /// Convierte coordenadas (x, y) Base-1 a los dos índices internos Base-0
-    /// que usa la matriz 'grid' (primer nivel = y-1, segundo nivel = x-1).
-    /// Único lugar del proyecto donde se hace esta conversión.
-    /// </summary>
     private bool TryGetGridIndices(int x, int y, out int yIndex, out int xIndex)
     {
         yIndex = y - 1;
@@ -153,9 +126,6 @@ public class GameStateManager : MonoBehaviour
         return true;
     }
 
-    /// <summary>
-    /// Retorna la cadena de bits del tablero usando coordenadas (x, y) Base-1.
-    /// </summary>
     public string GetCellWalls(int x, int y)
     {
         if (TryGetGridIndices(x, y, out int yIndex, out int xIndex))
@@ -165,14 +135,134 @@ public class GameStateManager : MonoBehaviour
         return null;
     }
 
-    /// <summary>
-    /// Actualiza la cadena de bits de una celda usando coordenadas (x, y) Base-1.
-    /// </summary>
     public void SetCellWalls(int x, int y, string newBits)
     {
         if (TryGetGridIndices(x, y, out int yIndex, out int xIndex))
         {
             CurrentState.grid[yIndex][xIndex] = newBits;
         }
+    }
+
+    // ========================================================================
+    // NUEVO: Aplicar acciones recibidas de Python
+    // ========================================================================
+
+    public void AplicarAccion(int agentId, GameAction accion)
+    {
+        if (CurrentState == null) return;
+
+        Agent agente = GetAgentById(agentId);
+        if (agente == null)
+        {
+            Debug.LogWarning($"[GameStateManager] No se encontró el agente {agentId} para aplicar la acción.");
+            return;
+        }
+
+        switch (accion.type)
+        {
+            case "move":
+            case "move_with_victim":
+                agente.position = new int[] { accion.to[0], accion.to[1] };
+                agente.ap = accion.remaining_ap;
+                break;
+
+            case "open_door":
+                AbrirPuertaEnEstado(accion.between);
+                agente.ap = accion.remaining_ap;
+                break;
+
+            case "extinguish_fire":
+                CurrentState.fire.RemoveAll(f => f[0] == accion.position[0] && f[1] == accion.position[1]);
+                agente.ap = accion.remaining_ap;
+                break;
+
+            case "clear_smoke":
+                CurrentState.smoke.RemoveAll(s => s[0] == accion.position[0] && s[1] == accion.position[1]);
+                agente.ap = accion.remaining_ap;
+                break;
+
+            case "damage_Wall":
+                DañarOPactualizarPared(accion.between);
+                agente.ap = accion.remaining_ap;
+                break;
+
+            case "pickup_victim":
+                CurrentState.poi.RemoveAll(p => p.id == accion.poi_id);
+                agente.carrying_victim = true;
+                break;
+
+            case "reveal_poi":
+                POI poi = CurrentState.poi.Find(p => p.id == accion.poi_id);
+                if (poi != null) poi.status = "known";
+                break;
+
+            case "rescue_victim":
+                agente.carrying_victim = false;
+                CurrentState.game.rescued++;
+                break;
+
+            default:
+                Debug.LogWarning($"[GameStateManager] Acción no reconocida: {accion.type}");
+                break;
+        }
+    }
+
+    private void AbrirPuertaEnEstado(List<List<int>> between)
+    {
+        int x1 = between[0][0], y1 = between[0][1];
+        int x2 = between[1][0], y2 = between[1][1];
+
+        Door puerta = CurrentState.doors.Find(d =>
+            (d.between[0][0] == x1 && d.between[0][1] == y1 && d.between[1][0] == x2 && d.between[1][1] == y2) ||
+            (d.between[0][0] == x2 && d.between[0][1] == y2 && d.between[1][0] == x1 && d.between[1][1] == y1));
+
+        if (puerta != null)
+        {
+            puerta.status = "open";
+        }
+    }
+
+    private void DañarOPactualizarPared(List<List<int>> between)
+    {
+        int x1 = between[0][0], y1 = between[0][1];
+        int x2 = between[1][0], y2 = between[1][1];
+
+        Wall existente = CurrentState.walls.Find(w =>
+            (w.between[0][0] == x1 && w.between[0][1] == y1 && w.between[1][0] == x2 && w.between[1][1] == y2) ||
+            (w.between[0][0] == x2 && w.between[0][1] == y2 && w.between[1][0] == x1 && w.between[1][1] == y1));
+
+        if (existente != null)
+        {
+            CurrentState.walls.Remove(existente);
+            RemoverBitDePared(x1, y1, x2, y2);
+            CurrentState.game.damage++;
+        }
+        else
+        {
+            CurrentState.walls.Add(new Wall
+            {
+                id = CurrentState.walls.Count + 1,
+                between = new List<int[]> { new int[] { x1, y1 }, new int[] { x2, y2 } }
+            });
+            CurrentState.game.damage++;
+        }
+    }
+
+    private void RemoverBitDePared(int x1, int y1, int x2, int y2)
+    {
+        string cell1 = GetCellWalls(x1, y1);
+        string cell2 = GetCellWalls(x2, y2);
+        if (cell1 == null || cell2 == null) return;
+
+        char[] bits1 = cell1.ToCharArray();
+        char[] bits2 = cell2.ToCharArray();
+
+        if (y2 == y1 + 1) { bits1[2] = '0'; bits2[0] = '0'; }
+        else if (x2 == x1 - 1) { bits1[1] = '0'; bits2[3] = '0'; }
+        else if (y2 == y1 - 1) { bits1[0] = '0'; bits2[2] = '0'; }
+        else if (x2 == x1 + 1) { bits1[3] = '0'; bits2[1] = '0'; }
+
+        SetCellWalls(x1, y1, new string(bits1));
+        SetCellWalls(x2, y2, new string(bits2));
     }
 }
