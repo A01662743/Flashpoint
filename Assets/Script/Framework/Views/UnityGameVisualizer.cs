@@ -55,6 +55,29 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     /// IMPORTANTE: quien llame a este método debe pasar las coordenadas en el
     /// mismo orden (x1, y1, x2, y2) que usa el resto del proyecto.
     /// </summary>
+    
+    private void Start()
+    {
+        RegistrarFuegosIniciales();
+    }
+
+    private void RegistrarFuegosIniciales()
+    {
+        // Busca todos los objetos con el script Fuego que ya están en la escena
+        Fuego[] fuegosEnEscena = FindObjectsByType<Fuego>(FindObjectsSortMode.None);
+
+        foreach (Fuego fuego in fuegosEnEscena)
+        {
+            // Convertimos su posición de mundo a coordenadas de Grid
+            Vector2Int gridPos = WorldToGridPosition(fuego.transform.position);
+
+            if (!fireObjects.ContainsKey(gridPos))
+            {
+                fireObjects.Add(gridPos, fuego.gameObject);
+                fuego.gameObject.name = $"Fire_[{gridPos.x},{gridPos.y}]";
+            }
+        }
+    }
     public void RegisterWallByCoordinates(int x1, int y1, int x2, int y2, GameObject wallGO)
     {
         string key = GetWallKey(x1, y1, x2, y2);
@@ -160,17 +183,25 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     }
 
     public void TriggerHeatUpAnimation(int x, int y)
-    {
-        Vector2Int pos = new Vector2Int(x, y);
+{
+    Vector2Int pos = new Vector2Int(x, y);
 
-        if (fireObjects.TryGetValue(pos, out GameObject fireGO))
-        {
-            // NOTA: esto es solo un log. Si quieres retroalimentación visual real
-            // aquí (ej. destello o partícula sobre el fuego ya existente), dime
-            // qué componente tiene tu prefab de fuego y lo conecto.
-            Debug.Log($"[VISUAL] HeatUp ejecutado en el objeto de fuego en ({x}, {y})");
-        }
+    if (!fireObjects.TryGetValue(pos, out GameObject fireGO))
+    {
+        Debug.LogError($"[DIAGNOSTICO] No existe ({x}, {y}) en fireObjects.");
+        
+        // Imprime todas las claves guardadas para ver las coordenadas reales
+        Debug.Log($"[DIAGNOSTICO] Claves registradas actualmente en fireObjects ({fireObjects.Count}): " 
+            + string.Join(", ", fireObjects.Keys));
+            
+        return;
     }
+
+    if (fireGO != null && fireGO.TryGetComponent<Fuego>(out var scriptFuego))
+    {
+        scriptFuego.IniciarEfectoEscalado();
+    }
+}
 
 
     // ========================================================================
