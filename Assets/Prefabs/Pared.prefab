@@ -133,6 +133,9 @@ MonoBehaviour:
   cellA_Col: 0
   cellB_Row: 0
   cellB_Col: 0
+  modeloIntacto: {fileID: 7663341655315065936}
+  modeloDanado: {fileID: 7269318493183638565}
+  modeloDestruido: {fileID: 8727105411342052353}
 --- !u!1001 &7392871491241447681
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -230,7 +233,7 @@ MeshRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7663341655315065936}
-  m_Enabled: 0
+  m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
@@ -376,7 +379,7 @@ MeshRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7269318493183638565}
-  m_Enabled: 0
+  m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
@@ -394,7 +397,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 77b89d2044727da478b0ddfa148a3138, type: 2}
+  - {fileID: 2100000, guid: 576e17cecd210fa4fb7d44d8011bc9ff, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -542,7 +545,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 77b89d2044727da478b0ddfa148a3138, type: 2}
+  - {fileID: 2100000, guid: a52aba9d90ec8c543ba9f5aa011bf9b9, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

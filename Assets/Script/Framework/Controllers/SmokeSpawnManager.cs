@@ -187,6 +187,7 @@ public class SmokeSpawnManager : MonoBehaviour
                 {
                     door.status = "destroyed";
                     state.game.damage++;
+                    state.game.damage++;
                     Debug.Log($"[SmokeSpawn] Puerta ID {door.id} cerrada entre ({currentX},{currentY}) y ({nextX},{nextY}) -> destruida por la explosión.");
                     visualizer?.DestroyDoorVisual(door.id);
                     continueLine = false;
@@ -194,7 +195,11 @@ public class SmokeSpawnManager : MonoBehaviour
                 }
                 else
                 {
-                    Debug.Log($"[SmokeSpawn] Puerta ID {door.id} entre ({currentX},{currentY}) y ({nextX},{nextY}) está '{door.status}', se ignora y la línea de fuego continúa.");
+                    door.status = "destroyed";
+                    state.game.damage++;
+                    state.game.damage++;
+                    Debug.Log($"[SmokeSpawn] Puerta ID {door.id} entre ({currentX},{currentY}) y ({nextX},{nextY}) está '{door.status}', se destruye y la línea de fuego continúa.");
+                    visualizer?.DestroyDoorVisual(door.id);
                 }
             }
 

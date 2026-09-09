@@ -7,8 +7,7 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     [Header("Prefabs Visuales")]
     public GameObject smokePrefab;
     public GameObject firePrefab;
-    public GameObject damagedWallEffectPrefab;
-    public GameObject destroyedDoorEffectPrefab;
+    public GameObject POIPrefab;
 
     [Header("Configuración del Tablero")]
     [Tooltip("Tamaño de cada casilla (unidades de Unity)")]
@@ -25,6 +24,8 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     [Tooltip("Alineación: True para 2D (XY), False para 3D (XZ)")]
     public bool is2D = false;
 
+    public GameStateManager stateManager; // Objeto game state manager
+
     // ========================================================================
     // DICCIONARIOS DE RASTREO
     // Convención única del proyecto: coordenadas siempre en (x, y), Base-1.
@@ -36,6 +37,9 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     // Mapea (x, y) -> GameObject de Fuego
     private Dictionary<Vector2Int, GameObject> fireObjects = new Dictionary<Vector2Int, GameObject>();
 
+    // Mapea (x, y) -> GameObject de POI's
+    private Dictionary<int, GameObject> POIObjects = new Dictionary<int, GameObject>();
+
     // Mapea ID de Puerta -> GameObject de Puerta en Escena
     private Dictionary<int, GameObject> doorObjects = new Dictionary<int, GameObject>();
 
@@ -44,6 +48,9 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
 
     // Mapea ID de Pared (asignado por JSON al dañarse) -> GameObject de Pared
     private Dictionary<int, GameObject> wallsById = new Dictionary<int, GameObject>();
+
+    // Mapea ID de Agente -> GameObject de Agente en Escena
+    private Dictionary<int, GameObject> agentObjects = new Dictionary<int, GameObject>();
 
 
     // ========================================================================
@@ -55,10 +62,67 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     /// IMPORTANTE: quien llame a este método debe pasar las coordenadas en el
     /// mismo orden (x1, y1, x2, y2) que usa el resto del proyecto.
     /// </summary>
-    
+
     private void Start()
     {
         RegistrarFuegosIniciales();
+        
+        if (stateManager != null && stateManager.CurrentState != null)
+        {
+            RegistrarAgentesIniciales(stateManager.CurrentState);
+            RegistrarPOIsIniciales(stateManager.CurrentState);
+        }
+    }
+
+    public void RegistrarAgentesIniciales(GameState state)
+    {
+        if (state?.agents == null) return;
+
+        // Busca los GameObjects en la escena (puedes filtrar por Tag "Agent" o por su Componente)
+        GameObject[] agentesEnEscena = GameObject.FindGameObjectsWithTag("Agent");
+
+        foreach (GameObject agenteGO in agentesEnEscena)
+        {
+            // Convertimos la posición 3D/2D del objeto a su casilla (x, y) en la matriz
+            Vector2Int gridPos = WorldToGridPosition(agenteGO.transform.position);
+
+            // Buscamos en el GameState cuál agente tiene estas mismas coordenadas
+            Agent matchData = state.agents.Find(a => a.position != null && 
+                                                    a.position.Length >= 2 && 
+                                                    a.position[0] == gridPos.x && 
+                                                    a.position[1] == gridPos.y);
+
+            if (matchData != null && !agentObjects.ContainsKey(matchData.id))
+            {
+                agentObjects.Add(matchData.id, agenteGO);
+                agenteGO.name = $"Agent_{matchData.id}";
+                Debug.Log($"[VISUAL] Agente vinculado: Pos ({gridPos.x},{gridPos.y}) -> ID {matchData.id}");
+            }
+        }
+    }
+
+    public void RegistrarPOIsIniciales(GameState state)
+    {
+        if (state?.poi == null) return;
+
+        GameObject[] poisEnEscena = GameObject.FindGameObjectsWithTag("POI");
+
+        foreach (GameObject poiGO in poisEnEscena)
+        {
+            Vector2Int gridPos = WorldToGridPosition(poiGO.transform.position);
+
+            POI matchData = state.poi.Find(p => p.position != null && 
+                                                p.position.Length >= 2 && 
+                                                p.position[0] == gridPos.x && 
+                                                p.position[1] == gridPos.y);
+
+            if (matchData != null && !POIObjects.ContainsKey(matchData.id))
+            {
+                POIObjects.Add(matchData.id, poiGO);
+                poiGO.name = $"POI_{matchData.id}";
+                Debug.Log($"[VISUAL] POI inicial vinculado: Pos ({gridPos.x},{gridPos.y}) -> ID {matchData.id}");
+            }
+        }
     }
 
     private void RegistrarFuegosIniciales()
@@ -183,25 +247,25 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     }
 
     public void TriggerHeatUpAnimation(int x, int y)
-{
-    Vector2Int pos = new Vector2Int(x, y);
-
-    if (!fireObjects.TryGetValue(pos, out GameObject fireGO))
     {
-        Debug.LogError($"[DIAGNOSTICO] No existe ({x}, {y}) en fireObjects.");
-        
-        // Imprime todas las claves guardadas para ver las coordenadas reales
-        Debug.Log($"[DIAGNOSTICO] Claves registradas actualmente en fireObjects ({fireObjects.Count}): " 
-            + string.Join(", ", fireObjects.Keys));
+        Vector2Int pos = new Vector2Int(x, y);
+
+        if (!fireObjects.TryGetValue(pos, out GameObject fireGO))
+        {
+            Debug.LogError($"[DIAGNOSTICO] No existe ({x}, {y}) en fireObjects.");
             
-        return;
-    }
+            // Imprime todas las claves guardadas para ver las coordenadas reales
+            Debug.Log($"[DIAGNOSTICO] Claves registradas actualmente en fireObjects ({fireObjects.Count}): " 
+                + string.Join(", ", fireObjects.Keys));
+                
+            return;
+        }
 
-    if (fireGO != null && fireGO.TryGetComponent<Fuego>(out var scriptFuego))
-    {
-        scriptFuego.IniciarEfectoEscalado();
+        if (fireGO != null && fireGO.TryGetComponent<Fuego>(out var scriptFuego))
+        {
+            scriptFuego.IniciarEfectoEscalado();
+        }
     }
-}
 
 
     // ========================================================================
@@ -214,7 +278,17 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
 
         if (wallGO != null)
         {
-            Debug.Log($"[VISUAL] Pared en ({coordA[0]},{coordA[1]}) - ({coordB[0]},{coordB[1]}) (ID {wallId}) marcada como dañada.");
+            // Intentamos obtener el script en la raíz o en un objeto hijo
+            if (wallGO.TryGetComponent<WallIdentity>(out var pared) || 
+                wallGO.GetComponentInChildren<WallIdentity>() is var paredHija && (pared = paredHija) != null)
+            {
+                pared.CambiarEstado(WallIdentity.Estado.Danado);
+                Debug.Log($"[VISUAL] Pared en ({coordA[0]},{coordA[1]}) - ({coordB[0]},{coordB[1]}) (ID {wallId}) marcada como dañada.");
+            }
+            else
+            {
+                Debug.LogWarning($"[VISUAL] El GameObject de la pared ID {wallId} no tiene el componente WallIdentity.");
+            }
         }
     }
 
@@ -224,7 +298,16 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
 
         if (wallGO != null)
         {
-            Debug.Log($"[VISUAL] Pared ID {wallId} destruida de la escena.");
+            if (wallGO.TryGetComponent<WallIdentity>(out var pared) || 
+                wallGO.GetComponentInChildren<WallIdentity>() is var paredHija && (pared = paredHija) != null)
+            {
+                pared.CambiarEstado(WallIdentity.Estado.Destruido);
+                Debug.Log($"[VISUAL] Pared ID {wallId} destruida de la escena.");
+            }
+            else
+            {
+                Debug.LogWarning($"[VISUAL] El GameObject de la pared ID {wallId} no tiene el componente WallIdentity.");
+            }
         }
     }
 
@@ -282,4 +365,68 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     // Placeholders para POI y Agentes
     public void RemovePOIVisual(int poiId, string result) { }
     public void EliminateAgentVisual(int agentId) { }
+
+    public void SpawnPOIVisual(int x, int y, int id)
+    {
+        if (POIObjects.ContainsKey(id)) return;
+
+        Vector3 worldPos = GridToWorldPosition(x, y);
+        GameObject instance = Instantiate(POIPrefab, worldPos, Quaternion.identity, transform);
+        instance.name = $"POI_{id}";
+        POIObjects.Add(id, instance);
+    }
+
+    public void RemoveSmokeVisual(int x, int y)
+    {
+        Vector2Int pos = new Vector2Int(x, y);
+
+        if (smokeObjects.TryGetValue(pos, out GameObject smokeGO))
+        {
+            Destroy(smokeGO);
+            smokeObjects.Remove(pos);
+            Debug.Log($"[VISUAL] Humo removido en la casilla ({x}, {y}).");
+        }
+    }
+
+    public void RemoveFireVisual(int x, int y)
+    {
+        Vector2Int pos = new Vector2Int(x, y);
+
+        if (fireObjects.TryGetValue(pos, out GameObject fireGO))
+        {
+            Destroy(fireGO);
+            fireObjects.Remove(pos);
+            Debug.Log($"[VISUAL] Fuego removido en la casilla ({x}, {y}).");
+        }
+    }
+
+    public void RemovePOIVisual(int id)
+    {
+
+        if (POIObjects.TryGetValue(id, out GameObject POIGO))
+        {
+            Destroy(POIGO);
+            POIObjects.Remove(id);
+            Debug.Log($"[VISUAL] POI id: " + id + " removido");
+        }
+    }
+
+    public void MoveAgentVisual(int agentId, int newX, int newY)
+    {
+        if (agentObjects.TryGetValue(agentId, out GameObject agentGO))
+        {
+            Vector3 targetWorldPos = GridToWorldPosition(newX, newY);
+            Debug.Log($"[VISUAL] Agente ID {agentId} debe moverse a ({newX}, {newY}) con su corrutina");
+        }
+        else
+        {
+            Debug.LogWarning($"[VISUAL] No se encontró el Agente ID {agentId} en agentObjects.");
+        }
+    }
+
+    public GameObject GetAgentGameObject(int agentId)
+    {
+        agentObjects.TryGetValue(agentId, out GameObject agentGO);
+        return agentGO;
+    }
 }
