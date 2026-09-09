@@ -2,24 +2,63 @@ using UnityEngine;
 
 public class WallIdentity : MonoBehaviour
 {
-    [Header("Posición de la Pared (Entre qué dos casillas está)")]
-    [Tooltip("Coordenada [fila, columna] de la primera casilla adyacente")]
-    public Vector2Int cellA;
+    public enum WallOrientationAxis { Forward, Right, Up }
 
-    [Tooltip("Coordenada [fila, columna] de la segunda casilla adyacente")]
-    public Vector2Int cellB;
+    [Header("Configuración de Orientación")]
+    [Tooltip("Elige qué eje local atraviesa perpendicularmente la pared hacia ambas casillas")]
+    public WallOrientationAxis perpendicularAxis = WallOrientationAxis.Forward;
+
+    [Header("Coordenadas Calculadas del Tablero (Base-1)")]
+    public int cellA_Row;
+    public int cellA_Col;
+    public int cellB_Row;
+    public int cellB_Col;
 
     private void Start()
     {
-        // Al iniciar la escena, la pared se registra sola en el visualizador por sus coordenadas
+        CalculateGridCoordinates();
+    }
+
+    public void CalculateGridCoordinates()
+    {
         var visualizer = FindObjectOfType<UnityGameVisualizer>();
-        if (visualizer != null)
+        if (visualizer == null)
         {
-            visualizer.RegisterWallByCoordinates(cellA, cellB, gameObject);
+            Debug.LogWarning("[WallIdentity] No se encontró UnityGameVisualizer en la escena.");
+            return;
         }
-        else
+
+        Vector3 wallPos = transform.position;
+        
+        // Determinar qué eje perpendicular atraviesa la pared
+        Vector3 direction = transform.forward;
+        switch (perpendicularAxis)
         {
-            Debug.LogWarning($"[WallIdentity] No se encontró UnityGameVisualizer en la escena para registrar la pared en ({cellA.x},{cellA.y}) - ({cellB.x},{cellB.y}).");
+            case WallOrientationAxis.Right: direction = transform.right; break;
+            case WallOrientationAxis.Up: direction = transform.up; break;
+            case WallOrientationAxis.Forward: direction = transform.forward; break;
         }
+
+        // Offset para caer dentro de las casillas adyacentes
+        float offset = visualizer.cellSize * 0.35f;
+
+        Vector3 sideAPos = wallPos + (direction * offset);
+        Vector3 sideBPos = wallPos - (direction * offset);
+
+        // Convertir posiciones de mundo a Vector2Int(row, col)
+        Vector2Int gridA = visualizer.WorldToGridPosition(sideAPos);
+        Vector2Int gridB = visualizer.WorldToGridPosition(sideBPos);
+
+        // ASIGNACIÓN CLARA: Vector2Int.x es la FILA y Vector2Int.y es la COLUMNA
+        cellA_Row = gridA.x;
+        cellA_Col = gridA.y;
+        
+        cellB_Row = gridB.x;
+        cellB_Col = gridB.y;
+
+        // Registrar en el visualizador pasando (rowA, colA, rowB, colB) en orden
+        visualizer.RegisterWallByCoordinates(cellA_Row, cellA_Col, cellB_Row, cellB_Col, gameObject);
+
+        Debug.Log($"[WallIdentity] Pared '{name}' registrada entre [{cellA_Row},{cellA_Col}] y [{cellB_Row},{cellB_Col}]");
     }
 }

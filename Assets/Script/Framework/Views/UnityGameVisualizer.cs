@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
 {
@@ -13,29 +14,32 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     [Tooltip("Tamaño de cada casilla (unidades de Unity)")]
     public float cellSize = 5.0f;
 
-    [Tooltip("Número total de filas de la matriz del JSON")]
-    public int gridRows = 6;
+    [Tooltip("Cantidad de casillas del tablero en el eje Y (vertical)")]
+    [FormerlySerializedAs("gridRows")]
+    public int boardSizeY = 6;
 
-    [Tooltip("Número total de columnas de la matriz del JSON")]
-    public int gridCols = 8;
+    [Tooltip("Cantidad de casillas del tablero en el eje X (horizontal)")]
+    [FormerlySerializedAs("gridCols")]
+    public int boardSizeX = 8;
 
     [Tooltip("Alineación: True para 2D (XY), False para 3D (XZ)")]
     public bool is2D = false;
 
     // ========================================================================
     // DICCIONARIOS DE RASTREO
+    // Convención única del proyecto: coordenadas siempre en (x, y), Base-1.
     // ========================================================================
-    
-    // Mapea [fila, columna] -> GameObject de Humo
+
+    // Mapea (x, y) -> GameObject de Humo
     private Dictionary<Vector2Int, GameObject> smokeObjects = new Dictionary<Vector2Int, GameObject>();
 
-    // Mapea [fila, columna] -> GameObject de Fuego
+    // Mapea (x, y) -> GameObject de Fuego
     private Dictionary<Vector2Int, GameObject> fireObjects = new Dictionary<Vector2Int, GameObject>();
 
     // Mapea ID de Puerta -> GameObject de Puerta en Escena
     private Dictionary<int, GameObject> doorObjects = new Dictionary<int, GameObject>();
 
-    // Mapea "row1,col1-row2,col2" -> GameObject de Pared Física
+    // Mapea "x1,y1-x2,y2" -> GameObject de Pared Física
     private Dictionary<string, GameObject> wallsByCoords = new Dictionary<string, GameObject>();
 
     // Mapea ID de Pared (asignado por JSON al dañarse) -> GameObject de Pared
@@ -48,14 +52,13 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
 
     /// <summary>
     /// Registra un GameObject de pared física usando el par de casillas que divide.
+    /// IMPORTANTE: quien llame a este método debe pasar las coordenadas en el
+    /// mismo orden (x1, y1, x2, y2) que usa el resto del proyecto.
     /// </summary>
-    public void RegisterWallByCoordinates(Vector2Int cellA, Vector2Int cellB, GameObject wallGO)
+    public void RegisterWallByCoordinates(int x1, int y1, int x2, int y2, GameObject wallGO)
     {
-        string key = GetWallKey(cellA.x, cellA.y, cellB.x, cellB.y);
-        if (!wallsByCoords.ContainsKey(key))
-        {
-            wallsByCoords.Add(key, wallGO);
-        }
+        string key = GetWallKey(x1, y1, x2, y2);
+        wallsByCoords[key] = wallGO;
     }
 
     /// <summary>
@@ -71,24 +74,25 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
 
 
     // ========================================================================
-    // CONVERSIÓN DE COORDENADAS (WORLD <-> GRID)
+    // CONVERSIÓN DE COORDENADAS (WORLD <-> TABLERO)
     // ========================================================================
 
     /// <summary>
-    /// Convierte coordenadas del JSON [row, col] a posición 3D/2D en Unity.
+    /// Convierte coordenadas del JSON (x, y) Base-1 a posición 3D/2D en Unity.
     /// (0,0,0) es el centro del tablero. Soporta índices negativos o bordes.
     /// </summary>
-    public Vector3 GridToWorldPosition(int row, int col)
+    public Vector3 GridToWorldPosition(int x, int y)
     {
-        float colCenterOffset = (gridCols - 1) / 2.0f;
-        float rowCenterOffset = (gridRows - 1) / 2.0f;
+        // El centro exacto entre x=4 y x=5 es 4.5; entre y=3 y y=4 es 3.5
+        float xCenterOffset = (boardSizeX + 1) / 2.0f; // 8 casillas en X -> 4.5
+        float yCenterOffset = (boardSizeY + 1) / 2.0f; // 6 casillas en Y -> 3.5
 
-        float worldX = (col - colCenterOffset) * cellSize;
-        float worldZ = -(row - rowCenterOffset) * cellSize;
+        float worldX = (x - xCenterOffset) * cellSize;
+        float worldZ = (yCenterOffset - y) * cellSize;
 
         if (is2D)
         {
-            return new Vector3(worldX, -worldZ, 0f);
+            return new Vector3(worldX, worldZ, 0f);
         }
         else
         {
@@ -97,21 +101,20 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     }
 
     /// <summary>
-    /// Convierte una posición en Unity (Vector3) a coordenadas discretas [row, col] (Vector2Int).
-    /// Permite valores fuera de rango o bordes (sin clampear).
+    /// Convierte una posición en Unity (Vector3) a coordenadas discretas (x, y) en Base-1 (Vector2Int).
     /// </summary>
     public Vector2Int WorldToGridPosition(Vector3 worldPos)
     {
-        float colCenterOffset = (gridCols - 1) / 2.0f;
-        float rowCenterOffset = (gridRows - 1) / 2.0f;
+        float xCenterOffset = (boardSizeX + 1) / 2.0f;
+        float yCenterOffset = (boardSizeY + 1) / 2.0f;
 
-        float posX = is2D ? worldPos.x : worldPos.x;
-        float posZ = is2D ? -worldPos.y : worldPos.z;
+        float posX = worldPos.x;
+        float posZ = is2D ? worldPos.y : worldPos.z;
 
-        int col = Mathf.RoundToInt((posX / cellSize) + colCenterOffset);
-        int row = Mathf.RoundToInt((-posZ / cellSize) + rowCenterOffset);
+        int x = Mathf.RoundToInt((posX / cellSize) + xCenterOffset);
+        int y = Mathf.RoundToInt(yCenterOffset - (posZ / cellSize));
 
-        return new Vector2Int(row, col);
+        return new Vector2Int(x, y);
     }
 
 
@@ -119,20 +122,20 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     // GESTIÓN DE HUMO Y FUEGO
     // ========================================================================
 
-    public void SpawnSmokeVisual(int row, int col)
+    public void SpawnSmokeVisual(int x, int y)
     {
-        Vector2Int pos = new Vector2Int(row, col);
+        Vector2Int pos = new Vector2Int(x, y);
         if (smokeObjects.ContainsKey(pos)) return;
 
-        Vector3 worldPos = GridToWorldPosition(row, col);
+        Vector3 worldPos = GridToWorldPosition(x, y);
         GameObject instance = Instantiate(smokePrefab, worldPos, Quaternion.identity, transform);
-        instance.name = $"Smoke_[{row},{col}]";
+        instance.name = $"Smoke_[{x},{y}]";
         smokeObjects.Add(pos, instance);
     }
 
-    public void PromoteSmokeToFireVisual(int row, int col)
+    public void PromoteSmokeToFireVisual(int x, int y)
     {
-        Vector2Int pos = new Vector2Int(row, col);
+        Vector2Int pos = new Vector2Int(x, y);
 
         // 1. Destruir y remover el humo existente en esa casilla
         if (smokeObjects.TryGetValue(pos, out GameObject smokeGO))
@@ -142,27 +145,30 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
         }
 
         // 2. Crear fuego en la misma casilla
-        SpawnFireVisual(row, col);
+        SpawnFireVisual(x, y);
     }
 
-    public void SpawnFireVisual(int row, int col)
+    public void SpawnFireVisual(int x, int y)
     {
-        Vector2Int pos = new Vector2Int(row, col);
+        Vector2Int pos = new Vector2Int(x, y);
         if (fireObjects.ContainsKey(pos)) return;
 
-        Vector3 worldPos = GridToWorldPosition(row, col);
+        Vector3 worldPos = GridToWorldPosition(x, y);
         GameObject instance = Instantiate(firePrefab, worldPos, Quaternion.identity, transform);
-        instance.name = $"Fire_[{row},{col}]";
+        instance.name = $"Fire_[{x},{y}]";
         fireObjects.Add(pos, instance);
     }
 
-    public void TriggerHeatUpAnimation(int row, int col)
+    public void TriggerHeatUpAnimation(int x, int y)
     {
-        Vector2Int pos = new Vector2Int(row, col);
+        Vector2Int pos = new Vector2Int(x, y);
 
         if (fireObjects.TryGetValue(pos, out GameObject fireGO))
         {
-            Debug.Log($"[VISUAL] HeatUp ejecutado en el objeto de fuego en [{row}, {col}]");
+            // NOTA: esto es solo un log. Si quieres retroalimentación visual real
+            // aquí (ej. destello o partícula sobre el fuego ya existente), dime
+            // qué componente tiene tu prefab de fuego y lo conecto.
+            Debug.Log($"[VISUAL] HeatUp ejecutado en el objeto de fuego en ({x}, {y})");
         }
     }
 
@@ -177,7 +183,7 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
 
         if (wallGO != null)
         {
-            Debug.Log($"[VISUAL] Pared en [{coordA[0]},{coordA[1]}] - [{coordB[0]},{coordB[1]}] (ID {wallId}) marcada como dañada.");
+            Debug.Log($"[VISUAL] Pared en ({coordA[0]},{coordA[1]}) - ({coordB[0]},{coordB[1]}) (ID {wallId}) marcada como dañada.");
         }
     }
 
@@ -216,7 +222,7 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
             return wallGO;
         }
 
-        // 2. Buscar por coordenadas espaciales
+        // 2. Buscar por coordenadas espaciales (coordA/coordB llegan como [x, y])
         string key = GetWallKey(coordA[0], coordA[1], coordB[0], coordB[1]);
         if (wallsByCoords.TryGetValue(key, out wallGO))
         {
@@ -225,20 +231,21 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
             return wallGO;
         }
 
-        Debug.LogWarning($"[VISUAL] No se encontró el GameObject de la pared entre [{coordA[0]},{coordA[1]}] y [{coordB[0]},{coordB[1]}]");
+        Debug.LogWarning($"[VISUAL] No se encontró el GameObject de la pared entre ({coordA[0]},{coordA[1]}) y ({coordB[0]},{coordB[1]})");
         return null;
     }
 
     /// <summary>
     /// Genera una clave única en string independiente del orden de las dos casillas adyacentes.
+    /// Recibe siempre (x1, y1, x2, y2).
     /// </summary>
-    private string GetWallKey(int row1, int col1, int row2, int col2)
+    private string GetWallKey(int x1, int y1, int x2, int y2)
     {
-        if (row1 < row2 || (row1 == row2 && col1 < col2))
+        if (y1 < y2 || (y1 == y2 && x1 < x2))
         {
-            return $"{row1},{col1}-{row2},{col2}";
+            return $"{x1},{y1}-{x2},{y2}";
         }
-        return $"{row2},{col2}-{row1},{col1}";
+        return $"{x2},{y2}-{x1},{y1}";
     }
 
     // Placeholders para POI y Agentes
