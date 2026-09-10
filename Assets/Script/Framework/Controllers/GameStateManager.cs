@@ -143,6 +143,14 @@ public class GameStateManager : MonoBehaviour
         return CurrentState.agents.Find(a => a.id == agentId);
     }
 
+    public void SetCurrentAgent(int agentId)
+    {
+        if(CurrentState != null)
+        {
+            CurrentState.current_agent = agentId;
+        }
+    }
+
     public bool HasFireAt(int x, int y)
     {
         if (CurrentState == null || CurrentState.fire == null) return false;
@@ -214,6 +222,12 @@ public class GameStateManager : MonoBehaviour
 
             case "extinguish_fire":
                 CurrentState.fire.RemoveAll(f => f[0] == accion.position[0] && f[1] == accion.position[1]);
+                FindObjectOfType<UnityGameVisualizer>()?.RemoveFireVisual(accion.position[0], accion.position[1]);
+                if(!CurrentState.smoke.Exists(s => s[0] == accion.position[0] && s[1] == accion.position[1]))
+                {
+                    CurrentState.smoke.Add(new int[] { accion.position[0], accion.position[1] });
+                    FindObjectOfType<UnityGameVisualizer>()?.SpawnSmokeVisual(accion.position[0], accion.position[1]);
+                }
                 agente.ap = accion.remaining_ap;
                 break;
 
@@ -260,6 +274,7 @@ public class GameStateManager : MonoBehaviour
         if (puerta != null)
         {
             puerta.status = "open";
+            FindObjectOfType<UnityGameVisualizer>()?.OpenDoorVisual(puerta.id);
         }
     }
 
