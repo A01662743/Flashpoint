@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -152,6 +153,7 @@ public class SmokeSpawnManager : MonoBehaviour
 
             if (!IsWithinLimits(currentX, currentY))
             {
+                Debug.Log($"[LOGICA-PARED] (síncrono) Línea cortada: ({currentX},{currentY}) está fuera de límites del grid.");
                 continueLine = false;
                 break;
             }
@@ -160,6 +162,7 @@ public class SmokeSpawnManager : MonoBehaviour
 
             if (isNextOutside && !IsOneStepOutsideGrid(nextX, nextY))
             {
+                Debug.Log($"[LOGICA-PARED] (síncrono) Línea cortada: siguiente casilla ({nextX},{nextY}) está fuera de los límites permitidos (ni siquiera un paso afuera).");
                 continueLine = false;
                 break;
             }
@@ -172,6 +175,8 @@ public class SmokeSpawnManager : MonoBehaviour
 
                 if (damagedWall != null)
                 {
+                    Debug.Log($"[LOGICA-PARED] (síncrono) Pared YA dañada entre ({currentX},{currentY}) y ({nextX},{nextY}) -> se destruye ahora. ID {damagedWall.id}. Encolando visual.");
+
                     RemoveWallFromGrid(currentX, currentY, wallBitIndex);
                     if (IsWithinLimits(nextX, nextY))
                     {
@@ -197,6 +202,8 @@ public class SmokeSpawnManager : MonoBehaviour
                         }
                     };
 
+                    Debug.Log($"[LOGICA-PARED] (síncrono) Pared detectada e intacta entre ({currentX},{currentY}) y ({nextX},{nextY}) -> se marca dañada ahora. ID nuevo {newDamagedWall.id}. Encolando visual.");
+
                     state.walls.Add(newDamagedWall);
                     state.game.damage++;
                     visualizer?.DamageWallVisual(newDamagedWall.id, newDamagedWall.between[0], newDamagedWall.between[1]);
@@ -217,12 +224,6 @@ public class SmokeSpawnManager : MonoBehaviour
                     visualizer?.DestroyDoorVisual(door.id, currentX, currentY);
                     continueLine = false;
                     break;
-                }
-                else
-                {
-                    door.status = "destroyed";
-                    state.game.damage += 2;
-                    //visualizer?.DestroyDoorVisual(door.id, currentX, currentY); ///////////////////////////////////////////////////////////////////7
                 }
             }
 
@@ -303,31 +304,6 @@ public class SmokeSpawnManager : MonoBehaviour
         }
     }
 
-    private bool TryIgniteSmoke(int sx, int sy)
-    {
-        int[][] adjDirections = new int[][]
-        {
-            new int[] { sx, sy + 1 },
-            new int[] { sx - 1, sy },
-            new int[] { sx, sy - 1 },
-            new int[] { sx + 1, sy }
-        };
-
-        foreach (int[] dir in adjDirections)
-        {
-            int fx = dir[0];
-            int fy = dir[1];
-
-            if (IsFireAt(fx, fy) && CanFireReachSmoke(fx, fy, sx, sy))
-            {
-                PromoteSmokeToFire(sx, sy);
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private bool HasAdjacentFire(int sx, int sy)
     {
         foreach (int[] dir in directions)
@@ -373,6 +349,7 @@ public class SmokeSpawnManager : MonoBehaviour
         return true;
     }
 
+    // DEJARLO SIMPLIFICADO ASÍ:
     private void PromoteSmokeToFire(int x, int y)
     {
         AddFire(x, y);
@@ -424,18 +401,28 @@ public class SmokeSpawnManager : MonoBehaviour
         return coord[0] == x && coord[1] == y;
     }
 
+    // Orden real de los bits en el grid: (arriba, izquierda, derecha, abajo)
+    // -> índices (0, 1, 2, 3). OJO: no es un ciclo donde el opuesto esté a
+    // "+2" de distancia (ver GetOppositeBitIndex).
     private int GetWallBitIndex(int dx, int dy)
     {
-        if (dx == 0 && dy == -1) return 0; 
-        if (dx == -1 && dy == 0) return 1; 
-        if (dx == 0 && dy == 1)  return 2; 
-        if (dx == 1 && dy == 0)  return 3; 
+        if (dx == 0 && dy == -1) return 0; // Norte  -> arriba
+        if (dx == -1 && dy == 0) return 1; // Oeste  -> izquierda
+        if (dx == 1 && dy == 0)  return 2; // Este   -> derecha
+        if (dx == 0 && dy == 1)  return 3; // Sur    -> abajo
         return -1;
     }
 
     private int GetOppositeBitIndex(int bitIndex)
     {
-        return (bitIndex + 2) % 4;
+        switch (bitIndex)
+        {
+            case 0: return 3; // arriba <-> abajo
+            case 1: return 2; // izquierda <-> derecha
+            case 2: return 1; // derecha <-> izquierda
+            case 3: return 0; // abajo <-> arriba
+            default: return -1;
+        }
     }
 
     private bool HasWallInGrid(int x, int y, int bitIndex)
@@ -468,13 +455,25 @@ public class SmokeSpawnManager : MonoBehaviour
             (MatchesCoord(w.between[0], x2, y2) && MatchesCoord(w.between[1], x1, y1)));
     }
 
+    // Contador monotónico: NUNCA se reutilizan IDs, aunque una pared se
+    // elimine de state.walls al ser destruida. Reutilizar IDs causaba que
+    // el visualizador (que cachea GameObject por ID) asociara paredes nuevas
+    // con GameObjects de paredes viejas en otras coordenadas.
+    private int nextWallIdCounter = -1;
+
     private int GetNextWallId()
     {
-        int maxId = 0;
-        foreach (var w in stateManager.CurrentState.walls)
+        if (nextWallIdCounter < 0)
         {
-            if (w.id > maxId) maxId = w.id;
+            int maxId = 0;
+            foreach (var w in stateManager.CurrentState.walls)
+            {
+                if (w.id > maxId) maxId = w.id;
+            }
+            nextWallIdCounter = maxId;
         }
-        return maxId + 1;
+
+        nextWallIdCounter++;
+        return nextWallIdCounter;
     }
 }

@@ -11,6 +11,29 @@ public struct HeatUpRequest
     public float intensity;
 }
 
+public enum VisualEventType
+{
+    SpawnSmoke,
+    RemoveSmoke,
+    SpawnFire,
+    HeatUp,
+    DamageWall,
+    DestroyWall,
+    DestroyDoor,
+    RemovePOI,
+    RespawnAgent
+}
+
+public struct VisualCommand
+{
+    public VisualEventType type;
+    public int x;
+    public int y;
+    public int id;          // Para paredes, puertas, POIs o agentes
+    public int[] target;    // Coordenadas secundarias (ej. paredes entre x1,y1 y x2,y2)
+    public float intensity; // Para HeatUp
+}
+
 public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
 {
     [Header("Prefabs Visuales")]
@@ -45,6 +68,110 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     [Tooltip("Porcentaje de la animación actual que debe transcurrir antes de lanzar la siguiente (0.5 = 50%)")]
     [Range(0.1f, 1.0f)]
     public float overlapThreshold = 0.5f;
+
+    private Queue<VisualCommand> visualQueue = new Queue<VisualCommand>();
+    private bool isProcessingQueue = false;
+
+    [Header("Tiempos de Animación Sequencial")]
+    [Tooltip("Tiempo de espera entre la ejecución de cada evento visual")]
+    public float delayBetweenEvents = 0.25f;
+
+    // Métodos de la Interfaz: Ahora solo agregan a la cola
+    public void SpawnSmokeVisual(int x, int y) 
+        => EnqueueCommand(new VisualCommand { type = VisualEventType.SpawnSmoke, x = x, y = y });
+
+    public void RemoveSmokeVisual(int x, int y) 
+        => EnqueueCommand(new VisualCommand { type = VisualEventType.RemoveSmoke, x = x, y = y });
+
+    public void SpawnFireVisual(int x, int y) 
+        => EnqueueCommand(new VisualCommand { type = VisualEventType.SpawnFire, x = x, y = y });
+
+    public void TriggerHeatUpAnimation(int x, int y, float intensity = 1.0f) 
+        => EnqueueCommand(new VisualCommand { type = VisualEventType.HeatUp, x = x, y = y, intensity = intensity });
+
+    public void DamageWallVisual(int id, int[] pos1, int[] pos2) 
+        => EnqueueCommand(new VisualCommand { type = VisualEventType.DamageWall, id = id, target = new int[] { pos2[0], pos2[1] }, x = pos1[0], y = pos1[1] });
+
+    public void DestroyWallVisual(int id, int[] pos1, int[] pos2) 
+        => EnqueueCommand(new VisualCommand { type = VisualEventType.DestroyWall, id = id, target = new int[] { pos2[0], pos2[1] }, x = pos1[0], y = pos1[1] });
+
+    public void DestroyDoorVisual(int id, int x, int y) 
+        => EnqueueCommand(new VisualCommand { type = VisualEventType.DestroyDoor, id = id, x = x, y = y });
+
+    public void RemovePOIVisual(int id) 
+        => EnqueueCommand(new VisualCommand { type = VisualEventType.RemovePOI, id = id });
+
+    public void RespawnAgent(int id) 
+        => EnqueueCommand(new VisualCommand { type = VisualEventType.RespawnAgent, id = id });
+
+    private void EnqueueCommand(VisualCommand cmd)
+    {
+        visualQueue.Enqueue(cmd);
+        if (!isProcessingQueue)
+        {
+            StartCoroutine(ProcessVisualQueueRoutine());
+        }
+    }
+
+    private IEnumerator ProcessVisualQueueRoutine()
+    {
+        isProcessingQueue = true;
+
+        while (visualQueue.Count > 0)
+        {
+            VisualCommand cmd = visualQueue.Dequeue();
+
+            // Ejecutar la acción correspondiente en Unity
+            ExecuteVisualCommand(cmd);
+
+            // Tiempo de pausa entre eventos para que sea totalmente legible
+            yield return new WaitForSeconds(delayBetweenEvents);
+        }
+
+        isProcessingQueue = false;
+    }
+
+    private void ExecuteVisualCommand(VisualCommand cmd)
+    {
+        switch (cmd.type)
+        {
+            case VisualEventType.SpawnSmoke:
+                ExecuteSpawnSmokeVisual(cmd.x, cmd.y);
+                break;
+
+            case VisualEventType.RemoveSmoke:
+                ExecuteRemoveSmokeVisual(cmd.x, cmd.y);
+                break;
+
+            case VisualEventType.SpawnFire:
+                ExecuteSpawnFireVisual(cmd.x, cmd.y);
+                break;
+
+            case VisualEventType.HeatUp:
+                ExecuteTriggerHeatUpAnimation(cmd.x, cmd.y, cmd.intensity);
+                break;
+
+            case VisualEventType.DamageWall:
+                ExecuteDamageWallVisual(cmd.id, new int[] { cmd.x, cmd.y }, cmd.target);
+                break;
+
+            case VisualEventType.DestroyWall:
+                ExecuteDestroyWallVisual(cmd.id, new int[] { cmd.x, cmd.y }, cmd.target);
+                break;
+
+            case VisualEventType.DestroyDoor:
+                ExecuteDestroyDoorVisual(cmd.id, cmd.x, cmd.y);
+                break;
+
+            case VisualEventType.RemovePOI:
+                ExecuteRemovePOIVisual(cmd.id);
+                break;
+
+            case VisualEventType.RespawnAgent:
+                ExecuteRespawnAgent(cmd.id);
+                break;
+        }
+    }
 
     // ========================================================================
     // DICCIONARIOS DE RASTREO
@@ -346,7 +473,7 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     // GESTIÓN DE HUMO Y FUEGO
     // ========================================================================
 
-    public void SpawnSmokeVisual(int x, int y)
+    public void ExecuteSpawnSmokeVisual(int x, int y)
     {
         Vector2Int pos = new Vector2Int(x, y);
         if (smokeObjects.ContainsKey(pos)) return;
@@ -358,7 +485,7 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
         smokeObjects.Add(pos, instance);
     }
 
-    public void SpawnFireVisual(int x, int y)
+    public void ExecuteSpawnFireVisual(int x, int y)
     {
         Vector2Int pos = new Vector2Int(x, y);
         if (fireObjects.ContainsKey(pos)) return;
@@ -370,7 +497,7 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
         fireObjects.Add(pos, instance);
     }
 
-    public void TriggerHeatUpAnimation(int x, int y, float intensity = 1.0f)
+    public void ExecuteTriggerHeatUpAnimation(int x, int y, float intensity = 1.0f)
     {
         // Encolar la petición de animación
         heatUpQueue.Enqueue(new HeatUpRequest { x = x, y = y, intensity = intensity });
@@ -419,7 +546,7 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     // GESTIÓN DE PAREDES Y PUERTAS
     // ========================================================================
 
-    public void DamageWallVisual(int wallId, int[] coordA, int[] coordB)
+    public void ExecuteDamageWallVisual(int wallId, int[] coordA, int[] coordB)
     {
         GameObject wallGO = FindWallGameObject(wallId, coordA, coordB);
 
@@ -439,7 +566,7 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
         }
     }
 
-    public void DestroyWallVisual(int wallId, int[] coordA, int[] coordB)
+    public void ExecuteDestroyWallVisual(int wallId, int[] coordA, int[] coordB)
     {
         GameObject wallGO = FindWallGameObject(wallId, coordA, coordB);
 
@@ -456,9 +583,14 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
                 Debug.LogWarning($"[VISUAL] El GameObject de la pared ID {wallId} no tiene el componente WallIdentity.");
             }
         }
+
+        // Invalidar el caché por ID: si el ID llegara a reutilizarse en el
+        // futuro (defensa adicional, el fix real está en GetNextWallId),
+        // no debe apuntar a este GameObject ya destruido.
+        wallsById.Remove(wallId);
     }
 
-    public void DestroyDoorVisual(int doorId, int x, int y)
+    public void ExecuteDestroyDoorVisual(int doorId, int x, int y)
     {
         // Si la puerta no está en el diccionario, reintentamos vincular las puertas de la escena con el JSON
         if (!doorObjects.ContainsKey(doorId))
@@ -543,9 +675,9 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     }
 
     // Placeholders para POI y Agentes
-    public void RemovePOIVisual(int poiId)
+    public void ExecuteRemovePOIVisual(int poiId)
     {
-        Debug.Log($"[VISUAL] RemovePOIVisual llamado para ID {poiId}. ¿Está en diccionario? {POIObjects.ContainsKey(poiId)}");
+        Debug.Log($"[VISUAL] ExecuteRemovePOIVisual llamado para ID {poiId}. ¿Está en diccionario? {POIObjects.ContainsKey(poiId)}");
         // Si el diccionario aún está vacío o faltaba este POI, intentar registrar entidades
         if (!POIObjects.ContainsKey(poiId))
         {
@@ -622,15 +754,24 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
         POIObjects.Add(id, instance);
     }
 
-    public void RemoveSmokeVisual(int x, int y)
+    public void ExecuteRemoveSmokeVisual(int x, int y)
     {
+        Debug.Log($"[VISUAL] ExecuteRemoveSmokeVisual llamado para casilla ({x}, {y}).");
         Vector2Int pos = new Vector2Int(x, y);
 
-        if (smokeObjects.TryGetValue(pos, out GameObject smokeGO))
+        if (smokeObjects.TryGetValue(pos, out GameObject humoGO) && humoGO != null)
         {
-            Destroy(smokeGO);
             smokeObjects.Remove(pos);
-            Debug.Log($"[VISUAL] Humo removido en la casilla ({x}, {y}).");
+
+            // Si tiene el script, ejecutamos la reducción de escala y autodestrucción
+            if (humoGO.TryGetComponent<Humo>(out var humoScript))
+            {
+                humoScript.DesvanecerYDestruir(0.25f); // Ajusta la duración deseada aquí
+            }
+            else
+            {
+                Destroy(humoGO);
+            }
         }
     }
 
@@ -666,12 +807,12 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     }
 
     /// Mueve un agente a la posición exterior (fuera del tablero) correspondiente a la entrada más cercana.
-    public void RespawnAgent(int agentId)
+    public void ExecuteRespawnAgent(int agentId)
     {
         // 1. Obtener el GameObject del agente por su ID
         GameObject agentGO = GetAgentGameObject(agentId);
 
-        // Si no está registrado, reintentar el registro inicial antes de rendirse
+        // Si no está registrado, reintentar el registro initial antes de rendirse
         if (agentGO == null)
         {
             Debug.LogWarning($"[VISUAL] Agente ID {agentId} no está en agentObjects. Reintentando registro...");
