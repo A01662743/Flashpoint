@@ -1,5 +1,3 @@
-!pip install mesa==3.5 numpy pandas matplotlib seaborn -q
-
 from mesa import Agent, Model
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import logging
