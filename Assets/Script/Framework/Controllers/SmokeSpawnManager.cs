@@ -406,10 +406,10 @@ public class SmokeSpawnManager : MonoBehaviour
     // "+2" de distancia (ver GetOppositeBitIndex).
     private int GetWallBitIndex(int dx, int dy)
     {
-        if (dx == 0 && dy == -1) return 0; // Norte  -> arriba
-        if (dx == -1 && dy == 0) return 1; // Oeste  -> izquierda
-        if (dx == 1 && dy == 0)  return 2; // Este   -> derecha
-        if (dx == 0 && dy == 1)  return 3; // Sur    -> abajo
+        if (dx == 0 && dy == -1) return 0; // Norte -> arriba
+        if (dx == -1 && dy == 0) return 1; // Oeste -> izquierda
+        if (dx == 0 && dy == 1)  return 2; // Sur   -> abajo
+        if (dx == 1 && dy == 0)  return 3; // Este  -> derecha
         return -1;
     }
 
@@ -417,10 +417,10 @@ public class SmokeSpawnManager : MonoBehaviour
     {
         switch (bitIndex)
         {
-            case 0: return 3; // arriba <-> abajo
-            case 1: return 2; // izquierda <-> derecha
-            case 2: return 1; // derecha <-> izquierda
-            case 3: return 0; // abajo <-> arriba
+            case 0: return 2; // arriba <-> abajo
+            case 1: return 3; // izquierda <-> derecha
+            case 2: return 0; // abajo <-> arriba
+            case 3: return 1; // derecha <-> izquierda
             default: return -1;
         }
     }

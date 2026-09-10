@@ -213,13 +213,37 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     /// mismo orden (x1, y1, x2, y2) que usa el resto del proyecto.
     /// </summary>
 
+    private void Awake()
+    {
+        // Awake() de TODOS los objetos de la escena corre antes que CUALQUIER
+        // Start() (incluyendo el de GameStateManager, que es quien carga el
+        // JSON). Suscribirse aquí, y no en Start(), es lo que elimina la
+        // condición de carrera: ya no importa en qué orden Unity decida
+        // ejecutar los Start() de los distintos scripts.
+        if (stateManager != null)
+        {
+            stateManager.SubscribeToInitialState(TryRegisterInitialEntities);
+        }
+        else
+        {
+            Debug.LogError("[VISUAL] No se asignó la referencia a GameStateManager (stateManager) en el Inspector. El registro inicial de agentes/POIs/puertas nunca ocurrirá.");
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (stateManager != null)
+        {
+            stateManager.UnsubscribeFromInitialState(TryRegisterInitialEntities);
+        }
+    }
+
     private void Start()
     {
+        // Estos dos SÍ pueden ir en Start(): dependen únicamente de objetos
+        // físicos ya presentes en la escena, no del JSON.
         RegistrarFuegosIniciales();
         RegistrarPOIsDeEscenaFisica(); // Llena POIObjectsByPos con los POI físicos de la escena
-
-        // Intentar registro inicial al arrancar
-        TryRegisterInitialEntities();
     }
 
     public void TryRegisterInitialEntities()
