@@ -1,6 +1,15 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Serialization;
+using System.Collections;
+
+// Datos de cada animación en cola
+public struct HeatUpRequest
+{
+    public int x;
+    public int y;
+    public float intensity;
+}
 
 public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
 {
@@ -25,6 +34,17 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     public bool is2D = false;
 
     public GameStateManager stateManager; // Objeto game state manager
+
+    private Queue<HeatUpRequest> heatUpQueue = new Queue<HeatUpRequest>();
+    private bool isProcessingHeatUpQueue = false;
+
+    [Header("Tiempos de Animación HeatUp")]
+    [Tooltip("Duración total de la animación de Heat Up")]
+    public float heatUpDuration = 1.0f;
+
+    [Tooltip("Porcentaje de la animación actual que debe transcurrir antes de lanzar la siguiente (0.5 = 50%)")]
+    [Range(0.1f, 1.0f)]
+    public float overlapThreshold = 0.5f;
 
     // ========================================================================
     // DICCIONARIOS DE RASTREO
@@ -83,6 +103,7 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
         {
             RegistrarAgentesIniciales(stateManager.CurrentState);
             RegistrarPOIsIniciales(stateManager.CurrentState);
+            RegistrarPuertasIniciales(stateManager.CurrentState);
         }
     }
 
@@ -214,6 +235,67 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
         }
     }
 
+    /// <summary>
+    /// Busca en la escena todos los GameObjects que tengan el script PuertaPared
+    /// (el contenedor "puerta con pared", que incluye las dos paredes laterales) y
+    /// los vincula con su ID real del JSON. El emparejamiento se hace comparando la
+    /// posición física del objeto contra el punto medio entre las dos casillas que
+    /// separa la puerta (campo "between" del JSON), ya que una puerta no vive en una
+    /// sola casilla sino entre dos, igual que una pared.
+    /// NOTA: ningún objeto se autoregistra; este método es el único responsable de
+    /// llenar doorObjects para las puertas iniciales de la partida.
+    /// </summary>
+    public void RegistrarPuertasIniciales(GameState state)
+    {
+        if (state?.doors == null)
+        {
+            Debug.LogWarning("[DEBUG] RegistrarPuertasIniciales: state.doors es null, no hay nada que vincular.");
+            return;
+        }
+
+        PuertaPared[] puertasEnEscena = FindObjectsByType<PuertaPared>(FindObjectsSortMode.None);
+        Debug.Log($"[DEBUG] RegistrarPuertasIniciales encontró {puertasEnEscena.Length} objetos con script PuertaPared en escena. JSON reporta {state.doors.Count} puertas.");
+
+        foreach (PuertaPared puertaParedGO in puertasEnEscena)
+        {
+            Vector3 doorWorldPos = puertaParedGO.transform.position;
+
+            Door matchData = null;
+            float minDistSqr = float.MaxValue;
+
+            // Busca la puerta del JSON cuyo punto medio esté más cerca de la posición del GameObject
+            foreach (Door doorData in state.doors)
+            {
+                if (doorData.between == null || doorData.between.Count < 2) continue;
+
+                Vector3 posA = GridToWorldPosition(doorData.between[0][0], doorData.between[0][1]);
+                Vector3 posB = GridToWorldPosition(doorData.between[1][0], doorData.between[1][1]);
+                Vector3 midPoint = (posA + posB) / 2f;
+
+                float distSqr = (doorWorldPos - midPoint).sqrMagnitude;
+                if (distSqr < minDistSqr)
+                {
+                    minDistSqr = distSqr;
+                    matchData = doorData;
+                }
+            }
+
+            // Se vincula directamente con la coincidencia más cercana sin validar límites de distancia
+            if (matchData != null)
+            {
+                if (!doorObjects.ContainsKey(matchData.id))
+                {
+                    RegisterDoorObject(matchData.id, puertaParedGO.gameObject);
+                    puertaParedGO.gameObject.name = $"Door_{matchData.id}";
+                    Debug.Log($"[VISUAL] Puerta vinculada directamente: WorldPos {doorWorldPos} -> ID {matchData.id} " +
+                            $"(between [{matchData.between[0][0]},{matchData.between[0][1]}]-[{matchData.between[1][0]},{matchData.between[1][1]}])");
+                }
+            }
+        }
+
+        Debug.Log($"[DEBUG] RegistrarPuertasIniciales terminó. {doorObjects.Count} puertas registradas.");
+    }
+
 
     // ========================================================================
     // CONVERSIÓN DE COORDENADAS (WORLD <-> TABLERO)
@@ -288,27 +370,50 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
         fireObjects.Add(pos, instance);
     }
 
-    public void TriggerHeatUpAnimation(int x, int y)
+    public void TriggerHeatUpAnimation(int x, int y, float intensity = 1.0f)
     {
-        Vector2Int pos = new Vector2Int(x, y);
+        // Encolar la petición de animación
+        heatUpQueue.Enqueue(new HeatUpRequest { x = x, y = y, intensity = intensity });
 
-        if (!fireObjects.TryGetValue(pos, out GameObject fireGO))
+        // Si el procesador no está activo, iniciarlo
+        if (!isProcessingHeatUpQueue)
         {
-            Debug.LogError($"[DIAGNOSTICO] No existe ({x}, {y}) en fireObjects.");
-            
-            // Imprime todas las claves guardadas para ver las coordenadas reales
-            Debug.Log($"[DIAGNOSTICO] Claves registradas actualmente en fireObjects ({fireObjects.Count}): " 
-                + string.Join(", ", fireObjects.Keys));
-                
-            return;
-        }
-
-        if (fireGO != null && fireGO.TryGetComponent<Fuego>(out var scriptFuego))
-        {
-            scriptFuego.IniciarEfectoEscalado();
+            StartCoroutine(ProcessHeatUpQueueRoutine());
         }
     }
+    private IEnumerator ProcessHeatUpQueueRoutine()
+    {
+        isProcessingHeatUpQueue = true;
 
+        while (heatUpQueue.Count > 0)
+        {
+            HeatUpRequest request = heatUpQueue.Dequeue();
+
+            // Disparar la animación visual en el GameObject correspondiente
+            EjecutarEfectoVisualHeatUp(request.x, request.y, request.intensity);
+
+            // Esperar exactamente hasta la mitad (o el tiempo configurado) antes de continuar
+            float waitTime = heatUpDuration * overlapThreshold;
+            yield return new WaitForSeconds(waitTime);
+        }
+
+        isProcessingHeatUpQueue = false;
+    }
+
+    private void EjecutarEfectoVisualHeatUp(int x, int y, float intensity)
+    {
+        // Reemplaza 'fireObjects' por el nombre de tu diccionario o lista de fuegos en el visualizador
+        // Ejemplo si usas una clave Vector2Int o tu propio método de obtención:
+        Vector2Int pos = new Vector2Int(x, y);
+
+        if (fireObjects.TryGetValue(pos, out GameObject fuegoGO) && fuegoGO != null)
+        {
+            if (fuegoGO.TryGetComponent<Fuego>(out var fuegoScript))
+            {
+                fuegoScript.IniciarEfectoEscalado(intensity, heatUpDuration);
+            }
+        }
+    }
 
     // ========================================================================
     // GESTIÓN DE PAREDES Y PUERTAS
@@ -353,11 +458,44 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
         }
     }
 
-    public void DestroyDoorVisual(int doorId)
+    public void DestroyDoorVisual(int doorId, int x, int y)
     {
-        if (doorObjects.TryGetValue(doorId, out GameObject doorGO))
+        // Si la puerta no está en el diccionario, reintentamos vincular las puertas de la escena con el JSON
+        if (!doorObjects.ContainsKey(doorId))
         {
-            Debug.Log($"[VISUAL] Puerta ID {doorId} destruida de la escena.");
+            Debug.LogWarning($"[VISUAL] Puerta ID {doorId} no encontrada en diccionario. Intentando re-registrar puertas...");
+            TryRegisterInitialEntities();
+        }
+
+        if (doorObjects.TryGetValue(doorId, out GameObject doorGO) && doorGO != null)
+        {
+            PuertaPared puertaParedScript = doorGO.GetComponent<PuertaPared>();
+
+            if (puertaParedScript != null)
+            {
+                Vector3 fireWorldPos = GridToWorldPosition(x, y);
+                puertaParedScript.OpenDoorFromFire(fireWorldPos);
+                Debug.Log($"[VISUAL] Reacción de Puerta ID {doorId} ante fuego iniciada desde casilla ({x}, {y}).");
+            }
+            else
+            {
+                Debug.LogWarning($"[VISUAL] Se encontró el GameObject de la Puerta ID {doorId}, pero no tiene el script PuertaPared.");
+            }
+        }
+        else
+        {
+            // RESPALDO DE EMERGENCIA: Búsqueda directa por el nombre asignado o GameObject en escena
+            GameObject fallbackDoor = GameObject.Find($"Door_{doorId}");
+            if (fallbackDoor != null && fallbackDoor.TryGetComponent<PuertaPared>(out var scriptRespaldo))
+            {
+                Vector3 fireWorldPos = GridToWorldPosition(x, y);
+                scriptRespaldo.OpenDoorFromFire(fireWorldPos);
+                Debug.Log($"[VISUAL] Puerta ID {doorId} activada mediante búsqueda de respaldo por nombre.");
+            }
+            else
+            {
+                Debug.LogError($"[VISUAL] No se pudo encontrar ni activar la Puerta ID {doorId} en la escena.");
+            }
         }
     }
 

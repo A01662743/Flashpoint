@@ -11,12 +11,14 @@ public class Fuego : MonoBehaviour
     private Vector3 startPos;
     public int num = 0;
 
-    [Header("Configuración de Escala")]
-    [SerializeField] private float duracionCrecimiento = 0.2f;
-    [SerializeField] private float duracionEncojimiento = 0.2f;
-    [SerializeField] private float tiempoDeEspera = 0.2f;
-    [Header("Configuración de Escala")]
-    [SerializeField] private float multiplicadorEscala = 2.0f; // Crecerá al doble (200%)
+    [Header("Configuración Base")]
+    public float multiplicadorEscalaBase = 1.5f;
+    public float duracionCrecimiento = 0.2f;
+    public float tiempoDeEspera = 0.1f;
+    public float duracionEncojimiento = 0.2f;
+
+    private Vector3 escalaOriginal;
+    private Coroutine corrutinaEscalado;
     private void Awake()
     {
         escalaOriginal = transform.localScale;
@@ -24,66 +26,81 @@ public class Fuego : MonoBehaviour
 
     // Método público para iniciar el proceso
 
-    private Vector3 escalaOriginal;
-    private Coroutine corrutinaEscalado;
-
-    public void IniciarEfectoEscalado()
+    public void IniciarEfectoEscalado(float intensidad = 1.0f, float duracionTotal = -1f)
     {
-        Debug.Log($"[FUEGO] IniciarEfectoEscalado() ejecutado en: '{gameObject.name}'");
+        Debug.Log($"[FUEGO] IniciarEfectoEscalado() ejecutado en: '{gameObject.name}' | Intensidad: {intensidad}");
 
-        // Guardamos la escala real actual del objeto justo antes de animar
-        escalaOriginal = transform.localScale;
+        // Guardamos la escala real actual del objeto solo si no estamos reinterrumpiendo una animación
+        if (corrutinaEscalado == null)
+        {
+            escalaOriginal = transform.localScale;
+        }
 
         if (corrutinaEscalado != null)
         {
             StopCoroutine(corrutinaEscalado);
         }
 
-        corrutinaEscalado = StartCoroutine(RutinaAgrandarYEncoger());
+        corrutinaEscalado = StartCoroutine(RutinaAgrandarYEncoger(intensidad, duracionTotal));
     }
 
-    private IEnumerator RutinaAgrandarYEncoger()
+    private IEnumerator RutinaAgrandarYEncoger(float intensidad, float duracionTotal)
     {
-        Vector3 escalaObjetivo = escalaOriginal * multiplicadorEscala;
+        // 1. Calculamos la escala objetivo ajustada por la intensidad
+        float multFinal = multiplicadorEscalaBase * intensidad;
+        Vector3 escalaObjetivo = escalaOriginal * multFinal;
 
-        Debug.Log($"[FUEGO] Escalando desde {escalaOriginal} hasta {escalaObjetivo}");
+        // 2. Si se pasa una duración total, recalculamos proporcionalmente los tiempos
+        float tCrecimiento = duracionCrecimiento;
+        float tEspera = tiempoDeEspera;
+        float tEncojimiento = duracionEncojimiento;
 
-        // 1. Fase de crecimiento
-        yield return StartCoroutine(CambiarEscala(escalaOriginal, escalaObjetivo, duracionCrecimiento));
-
-        if (tiempoDeEspera > 0f)
+        if (duracionTotal > 0f)
         {
-            yield return new WaitForSeconds(tiempoDeEspera);
+            float sumaTiemposBase = duracionCrecimiento + tiempoDeEspera + duracionEncojimiento;
+            if (sumaTiemposBase > 0f)
+            {
+                float factorProporcional = duracionTotal / sumaTiemposBase;
+                tCrecimiento *= factorProporcional;
+                tEspera *= factorProporcional;
+                tEncojimiento *= factorProporcional;
+            }
         }
 
-        Vector3 dobleEscala = transform.root.localScale * 2f;
+        // 3. Fase de crecimiento
+        yield return StartCoroutine(CambiarEscala(escalaOriginal, escalaObjetivo, tCrecimiento));
 
-        // 2. Fase de retorno
-        yield return StartCoroutine(CambiarEscala(escalaObjetivo, dobleEscala, duracionEncojimiento));
+        if (tEspera > 0f)
+        {
+            yield return new WaitForSeconds(tEspera);
+        }
+
+        // 4. Fase de retorno a la escala original
+        yield return StartCoroutine(CambiarEscala(escalaObjetivo, escalaOriginal, tEncojimiento));
 
         corrutinaEscalado = null;
     }
 
     private IEnumerator CambiarEscala(Vector3 inicio, Vector3 destino, float duracion)
     {
+        if (duracion <= 0f)
+        {
+            transform.localScale = destino;
+            yield break;
+        }
+
         float tiempoTranscurrido = 0f;
 
         while (tiempoTranscurrido < duracion)
         {
             tiempoTranscurrido += Time.deltaTime;
-            
-            // Calculamos el progreso estandarizado entre 0 y 1
             float porcentaje = Mathf.Clamp01(tiempoTranscurrido / duracion);
-            
-            // Usamos SmoothStep para suavizar el inicio y el final de la animación
             float porcentajeSuave = Mathf.SmoothStep(0f, 1f, porcentaje);
 
             transform.localScale = Vector3.Lerp(inicio, destino, porcentajeSuave);
-
-            yield return null; // Espera al siguiente frame
+            yield return null;
         }
 
-        // Aseguramos que quede exactamente en el valor final deseado
         transform.localScale = destino;
     }
 

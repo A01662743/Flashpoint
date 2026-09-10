@@ -21,9 +21,11 @@ public class SmokeSpawnManager : MonoBehaviour
         GameState state = stateManager.CurrentState;
         if (state == null) return;
 
-        // 1. Si hay fuego -> Detona explosión
+        // 1. Si cae directamente en un fuego existente -> HeatUp reforzado y Explosión
         if (IsFireAt(targetX, targetY))
         {
+            // Enviamos intensidad aumentada (ejemplo 2.0f) al fuego impactado directamente
+            visualizer?.TriggerHeatUpAnimation(targetX, targetY, intensity: 2.0f);
             TriggerExplosion(targetX, targetY);
         }
         // 2. Si hay humo -> Transforma el humo en fuego
@@ -31,14 +33,14 @@ public class SmokeSpawnManager : MonoBehaviour
         {
             AddFire(targetX, targetY);
         }
-        // 3. Si la casilla está vacía -> Spawnea humo únicamente
+        // 3. Casilla vacía -> Humo
         else
         {
             state.smoke.Add(new int[] { targetX, targetY });
             visualizer?.SpawnSmokeVisual(targetX, targetY);
         }
 
-        // Procesa la reacción en cadena para humos contiguos al fuego
+        //reacción en cadena
         ProcessSmokeIgnitionChain();
     }
 
@@ -50,21 +52,21 @@ public class SmokeSpawnManager : MonoBehaviour
     {
         GameState state = stateManager.CurrentState;
 
-        // Si ya hay humo en esta casilla, lo removemos tanto del estado como de la escena
         if (IsSmokeAt(x, y))
         {
             RemoveSmokeAt(x, y);
             visualizer?.RemoveSmokeVisual(x, y);
         }
 
-        // Agregar fuego al estado si no existe previamente
         if (!IsFireAt(x, y))
         {
             state.fire.Add(new int[] { x, y });
             visualizer?.SpawnFireVisual(x, y);
+            
+            // Ejecutar HeatUp al spawnear fuego
+            visualizer?.TriggerHeatUpAnimation(x, y);
         }
 
-        // Eliminar o procesar POIs y Agentes que toquen el fuego
         CheckAndEliminateEntities(x, y);
     }
 
@@ -211,7 +213,8 @@ public class SmokeSpawnManager : MonoBehaviour
                 {
                     door.status = "destroyed";
                     state.game.damage += 2;
-                    visualizer?.DestroyDoorVisual(door.id);
+                    Debug.Log($"[Propagación Fuego] Puerta ID {door.id} destruida entre ({currentX}, {currentY}) y ({nextX}, {nextY}).");
+                    visualizer?.DestroyDoorVisual(door.id, currentX, currentY);
                     continueLine = false;
                     break;
                 }
@@ -219,7 +222,7 @@ public class SmokeSpawnManager : MonoBehaviour
                 {
                     door.status = "destroyed";
                     state.game.damage += 2;
-                    visualizer?.DestroyDoorVisual(door.id);
+                    //visualizer?.DestroyDoorVisual(door.id, currentX, currentY); ///////////////////////////////////////////////////////////////////7
                 }
             }
 

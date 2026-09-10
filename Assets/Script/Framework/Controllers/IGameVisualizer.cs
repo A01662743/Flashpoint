@@ -4,11 +4,11 @@ public interface IGameVisualizer
 {
     void SpawnSmokeVisual(int x, int y);
     void SpawnFireVisual(int x, int y);
-    void TriggerHeatUpAnimation(int x, int y);
+    void TriggerHeatUpAnimation(int x, int y, float intensity = 1.0f);
     
     void DamageWallVisual(int wallId, int[] coordA, int[] coordB);
     void DestroyWallVisual(int wallId, int[] coordA, int[] coordB);
-    void DestroyDoorVisual(int doorId);
+    void DestroyDoorVisual(int doorId, int x, int y);
     
     void RemovePOIVisual(int poiId);
     void EliminateAgentVisual(int agentId);
