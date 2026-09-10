@@ -1,0 +1,60 @@
+{
+    "turn": 1,
+    "phase": "AGENT_ACTION",
+    "current_agent": 3,
+    "game_status": "playing",
+
+    "grid": [
+        ["1100", "1000", "1000"],
+        ["0100", "0000", "0010"],
+        ["0110", "0010", "0011"]
+    ],
+
+    "poi": [
+        {
+            "id": 1,
+            "position": [3, 3],
+            "status": "known",
+            "result": "victim"
+        }
+    ],
+
+    "fire": [
+        [2, 2]
+    ],
+
+    "smoke": [],
+
+    "doors": [
+        {
+            "id": 1,
+            "between": [[1, 2], [2, 2]],
+            "status": "closed"
+        }
+    ],
+
+    "walls": [],
+
+    "entrances": [
+        [1, 1]
+    ],
+
+    "agents": [
+        {
+            "id": 3,
+            "position": [1, 1],
+            "ap": 4,
+            "carrying_victim": false,
+            "status": "active",
+            "reserved_target": null
+        }
+    ],
+
+    "reservations": [],
+
+    "game": {
+        "rescued": 0,
+        "lost": 0,
+        "damage": 0
+    }
+}
