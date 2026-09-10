@@ -1,7 +1,7 @@
 {
-    "turn": 12,
+    "turn": 1,
     "phase": "AGENT_ACTION",
-    "current_agent": 3,
+    "current_agent": 1,
     "game_status": "playing",
 
     "grid": [
@@ -16,19 +16,20 @@
     "poi": [
         {
             "id": 1,
-            "position": [6, 7],
+            "position": [4, 2],
             "status": "unknown",
 	        "result": "victim"
         },
         {
             "id": 2,
-            "position": [4, 3],
-            "status": "known",
-	    "result": "victim"
+            "position": [1, 5],
+            "status": "unknown",
+	        "result": "victim"
         },
         {
             "id": 3,
-            "position": [2, 6],
+            "position": [8, 5],
+            "status": "unknown",
             "result": "false_alarm"
         }
     ],
@@ -105,40 +106,39 @@
     "agents": [
         {
             "id": 1,
-            "position": [3, 4],
+            "position": [0, 3],
             "ap": 4,
             "carrying_victim": false,
-            "status": "active",
-            "reserved_target": null
         },
         {
             "id": 2,
-            "position": [5, 7],
+            "position": [3, 7],
             "ap": 2,
-            "carrying_victim": true,
-            "status": "active",
-            "reserved_target": null
+            "carrying_victim": false,
         },
         {
             "id": 3,
-            "position": [2, 3],
+            "position": [6, 0],
             "ap": 6,
             "carrying_victim": false,
-            "reserved_target": 2
-        }
-    ],
-
-    "reservations": [
+        },
         {
-            "target_type": "poi",
-            "target_id": 2,
-            "agent_id": 3
+            "id": 4,
+            "position": [9, 4],
+            "ap": 6,
+            "carrying_victim": false,
+        },
+        {
+            "id": 5,
+            "position": [7, 6],
+            "ap": 6,
+            "carrying_victim": false,
         }
     ],
 
     "game": {
-        "rescued": 3,
-        "lost": 1,
-        "damage": 8
+        "rescued": 0,
+        "lost": 0,
+        "damage": 0
     }
 }
