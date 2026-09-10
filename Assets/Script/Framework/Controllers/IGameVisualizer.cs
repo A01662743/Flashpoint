@@ -20,5 +20,5 @@ public interface IGameVisualizer
     void RemoveSmokeVisual(int x, int y);
     void RemoveFireVisual(int x, int y);
     void RespawnAgent(int agentId);
-
+    void CarryPOI(int poiId, int agentId);
 }

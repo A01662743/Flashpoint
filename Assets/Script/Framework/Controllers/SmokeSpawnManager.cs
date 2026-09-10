@@ -111,8 +111,7 @@ public class SmokeSpawnManager : MonoBehaviour
                     state.agents[i].position[1] == y)
                 {
                     Agent agent = state.agents[i];
-                    agent.status = "knocked_out";
-                    visualizer?.EliminateAgentVisual(agent.id);
+                    visualizer?.RespawnAgent(agent.id);
                     Debug.Log($"[Propagación Fuego] Agente ID {agent.id} alcanzado por fuego en ({x}, {y}).");
                 }
             }
@@ -260,37 +259,37 @@ public class SmokeSpawnManager : MonoBehaviour
         if (state == null || state.smoke == null || state.smoke.Count == 0) return;
 
         Queue<int[]> newlyCreatedFires = new Queue<int[]>();
-        List<int[]> currentSmokes = new List<int[]>(state.smoke);
 
-        foreach (int[] smokePos in currentSmokes)
+        // 1. Clonar la lista de humos actual para evaluar la condición inicial
+        List<int[]> initialSmokes = new List<int[]>(state.smoke);
+
+        foreach (int[] smokePos in initialSmokes)
         {
             int sx = smokePos[0];
             int sy = smokePos[1];
 
-            if (TryIgniteSmoke(sx, sy))
+            // Validar si el humo aún existe (por si fue removido en una iteración previa)
+            if (!IsSmokeAt(sx, sy)) continue;
+
+            // Verificar si hay algún fuego adyacente que lo encienda
+            if (HasAdjacentFire(sx, sy))
             {
+                PromoteSmokeToFire(sx, sy);
                 newlyCreatedFires.Enqueue(new int[] { sx, sy });
             }
         }
 
+        // 2. Propagación en cadena para humos contiguos
         while (newlyCreatedFires.Count > 0)
         {
             int[] currentFire = newlyCreatedFires.Dequeue();
             int fx = currentFire[0];
             int fy = currentFire[1];
 
-            int[][] adjDirections = new int[][]
+            foreach (int[] dir in directions)
             {
-                new int[] { fx, fy + 1 },
-                new int[] { fx - 1, fy },
-                new int[] { fx, fy - 1 },
-                new int[] { fx + 1, fy }
-            };
-
-            foreach (int[] neighborPos in adjDirections)
-            {
-                int nx = neighborPos[0];
-                int ny = neighborPos[1];
+                int nx = fx + dir[0];
+                int ny = fy + dir[1];
 
                 if (IsSmokeAt(nx, ny) && CanFireReachSmoke(fx, fy, nx, ny))
                 {
@@ -326,21 +325,43 @@ public class SmokeSpawnManager : MonoBehaviour
         return false;
     }
 
+    private bool HasAdjacentFire(int sx, int sy)
+    {
+        foreach (int[] dir in directions)
+        {
+            int fx = sx + dir[0];
+            int fy = sy + dir[1];
+
+            if (IsFireAt(fx, fy) && CanFireReachSmoke(fx, fy, sx, sy))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private bool CanFireReachSmoke(int fireX, int fireY, int smokeX, int smokeY)
     {
-        int wallBitIndex = -1;
+        int dx = smokeX - fireX;
+        int dy = smokeY - fireY;
 
-        if (fireY > smokeY) wallBitIndex = 0;      
-        else if (fireX < smokeX) wallBitIndex = 1; 
-        else if (fireY < smokeY) wallBitIndex = 2; 
-        else if (fireX > smokeX) wallBitIndex = 3; 
+        // Mapear la dirección Fuego -> Humo para obtener la pared del lado del Fuego
+        int wallBitIndex = GetWallBitIndex(dx, dy);
 
-        if (HasWallInGrid(smokeX, smokeY, wallBitIndex))
+        // Si la dirección es válida y hay pared desde la casilla del fuego
+        if (wallBitIndex != -1 && HasWallInGrid(fireX, fireY, wallBitIndex))
         {
             return false;
         }
 
-        Door door = GetDoorBetween(smokeX, smokeY, fireX, fireY);
+        // Mapear la dirección opuesta para validar la pared del lado del Humo
+        if (wallBitIndex != -1 && HasWallInGrid(smokeX, smokeY, GetOppositeBitIndex(wallBitIndex)))
+        {
+            return false;
+        }
+
+        // Verificar si hay puerta cerrada entre ambos
+        Door door = GetDoorBetween(fireX, fireY, smokeX, smokeY);
         if (door != null && door.status == "closed")
         {
             return false; 

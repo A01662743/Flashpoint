@@ -15,9 +15,11 @@ public class POIChoreManager : MonoBehaviour
     [SerializeField] private int maxY = 6;
     private int FA_countdown = 5;
     private int Vic_countdown = 10;
+    private bool automaticReveal = false;
 
     public void ProcesarPOI()
     {
+        automaticReveal = false; // Reiniciar el flag de revelación automática al inicio de cada proceso
         GameState currentState = stateManager.CurrentState;
 
         if (currentState == null)
@@ -90,15 +92,21 @@ public class POIChoreManager : MonoBehaviour
             currentState.poi.Add(nuevoPoiRevelado);
 
             // Modificar el estado del agente si fue víctima
-            if (resultadoAleatorio == "victim")
+            if (resultadoAleatorio == "victim" && agenteEnCelda.carrying_victim == false)
             {
                 agenteEnCelda.carrying_victim = true;
+                visualizer?.CarryPOI(nuevoPoiRevelado.id, agenteEnCelda.id);
                 Debug.Log($"[POI Manager] Cargando víctima: Agente ID {agenteEnCelda.id} actualizado con carrying_victim = true.");
             }
             else
             {
-                Debug.Log("[POI Manager] False alarm revelada.");
+                Debug.Log("[POI Manager] False alarm revelada. o victim sin poder cargar.");
                 visualizer?.RemovePOIVisual(nuevoPoiRevelado.id);
+                if (stateManager?.CurrentState?.poi != null)
+                {
+                    int eliminados = stateManager.CurrentState.poi.RemoveAll(p => p.id == nuevoPoiRevelado.id);
+                    Debug.Log($"[STATE] POI ID {nuevoPoiRevelado.id} eliminado del GameState ({eliminados} registro(s) remido(s)).");
+                }
             }
 
             return; // Terminar ejecución

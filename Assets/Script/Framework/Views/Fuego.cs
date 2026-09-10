@@ -56,8 +56,10 @@ public class Fuego : MonoBehaviour
             yield return new WaitForSeconds(tiempoDeEspera);
         }
 
+        Vector3 dobleEscala = transform.root.localScale * 2f;
+
         // 2. Fase de retorno
-        yield return StartCoroutine(CambiarEscala(escalaObjetivo, escalaOriginal, duracionEncojimiento));
+        yield return StartCoroutine(CambiarEscala(escalaObjetivo, dobleEscala, duracionEncojimiento));
 
         corrutinaEscalado = null;
     }

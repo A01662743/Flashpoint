@@ -110,7 +110,13 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
                 agenteGO.name = $"Agent_{matchData.id}";
                 Debug.Log($"[VISUAL] Agente vinculado: Pos ({gridPos.x},{gridPos.y}) -> ID {matchData.id}");
             }
+            else if (matchData == null)
+            {
+                Debug.LogWarning($"[VISUAL] GameObject '{agenteGO.name}' en Pos ({gridPos.x},{gridPos.y}) NO coincide con ningún agente del JSON. IDs disponibles en state.agents: {string.Join(", ", state.agents.ConvertAll(a => $"{a.id}@({a.position?[0]},{a.position?[1]})"))}");
+            }
         }
+
+        Debug.Log($"[DEBUG] RegistrarAgentesIniciales terminó. {agentObjects.Count} agentes registrados de {agentesEnEscena.Length} encontrados en escena y {state.agents.Count} en el JSON.");
     }
 
     public void RegistrarPOIsDeEscenaFisica()
@@ -526,11 +532,22 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     {
         // 1. Obtener el GameObject del agente por su ID
         GameObject agentGO = GetAgentGameObject(agentId);
+
+        // Si no está registrado, reintentar el registro inicial antes de rendirse
         if (agentGO == null)
         {
-            Debug.LogWarning($"[VISUAL] No se pudo hacer Respawn del agente ID {agentId} porque no se encontró en escena.");
+            Debug.LogWarning($"[VISUAL] Agente ID {agentId} no está en agentObjects. Reintentando registro...");
+            TryRegisterInitialEntities();
+            agentGO = GetAgentGameObject(agentId);
+        }
+
+        if (agentGO == null)
+        {
+            Debug.LogWarning($"[VISUAL] No se pudo hacer Respawn del agente ID {agentId} porque no se encontró en escena tras reintentar.");
             return;
         }
+
+        Debug.Log($"[Propagación Fuego] Respawneando Agente");
 
         // 2. Obtener la casilla actual (x, y) del agente en la cuadrícula
         Vector2Int currentGridPos = WorldToGridPosition(agentGO.transform.position);
@@ -579,7 +596,30 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
             newPos = new Vector2Int(3, 7);
         }
 
-        // 6. Convertir la casilla newPos a coordenadas de mundo
+        // 6. VERIFICAR Y REMOVER FUEGO EN LA NUEVA POSICIÓN
+        GameState state = stateManager != null ? stateManager.CurrentState : null;
+        if (state != null)
+        {
+            // Actualizar la posición del agente en el GameState
+            Agent agentData = state.agents?.Find(a => a.id == agentId);
+            if (agentData != null)
+            {
+                agentData.position = new int[] { newPos.x, newPos.y };
+            }
+
+            // Si hay fuego en la casilla destino, eliminarlo del estado y de la escena
+            if (state.fire != null)
+            {
+                int removedCount = state.fire.RemoveAll(f => f != null && f.Length >= 2 && f[0] == newPos.x && f[1] == newPos.y);
+                if (removedCount > 0)
+                {
+                    RemoveFireVisual(newPos.x, newPos.y);
+                    Debug.Log($"[VISUAL] Fuego removido del estado y la escena en la casilla de respawn ({newPos.x}, {newPos.y}).");
+                }
+            }
+        }
+
+        // 7. Convertir la casilla newPos a coordenadas de mundo
         Vector3 targetWorldPos = GridToWorldPosition(newPos.x, newPos.y);
 
         // Preservar la altura (Y si es 3D, Z si es 2D) original del Prefab del Agente
@@ -588,9 +628,39 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
             targetWorldPos.y = agentGO.transform.position.y;
         }
 
-        // 7. Mover físicamente el agente en la escena
+        // 8. Mover físicamente el agente en la escena
         agentGO.transform.position = targetWorldPos;
 
         Debug.Log($"[VISUAL] Respawn Agente ID {agentId}: Posición anterior en Grid ({currentGridPos.x},{currentGridPos.y}) -> Entrada cercana ({closestEntrance.x},{closestEntrance.y}) -> Nueva pos fuera del tablero ({newPos.x},{newPos.y})");
+    }
+
+    public void CarryPOI(int poiId, int agentId)
+    {
+        // 1. Buscar el Agente en el diccionario
+        GameObject agentGO = GetAgentGameObject(agentId); // Usa agentObjects.TryGetValue internamente[cite: 10]
+        
+        if (agentGO == null)
+        {
+            Debug.LogWarning($"[VISUAL] No se encontró el Agente ID {agentId} para cargar el POI ID {poiId}.");
+            return;
+        }
+
+        // 2. Buscar el POI en el diccionario
+        if (POIObjects.TryGetValue(poiId, out GameObject poiGO) && poiGO != null) //[cite: 10]
+        {
+            if (poiGO.TryGetComponent<POIScript>(out var poiScript))
+            {
+                Debug.Log($"[POI Manager] Ejecutando carrying animation para el POI ID {poiId}.");
+                poiScript.StartToBeCarriedPOI(agentId, agentGO.transform);
+            }
+            else
+            {
+                Debug.LogWarning($"[VISUAL] El GameObject del POI ID {poiId} no contiene el componente POIScript.");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"[VISUAL] No se encontró el POI ID {poiId} en POIObjects para ser cargado por el Agente ID {agentId}.");
+        }
     }
 }
