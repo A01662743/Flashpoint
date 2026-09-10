@@ -1,4 +1,3 @@
-
 from mesa import Agent, Model
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import logging
@@ -24,13 +23,13 @@ class GameState:
       self.fire = [tuple(p) for p in (data.get("fire") or [])]
       self.smoke = [tuple(p) for p in (data.get("smoke") or [])]
       self.doors = data.get("doors")
-      self.walls = data.get("walls")
+      self.damaged_walls = data.get("walls")
       self.entrances = data.get("entrances")
       #Agentes
       self.agents = data.get("agents")
 
       #Marcador
-      self.stats = data.get("stats")
+      self.stats = data.get("game")
 
     # Agente Actual
     def my_agent(self) -> dict:
@@ -57,7 +56,7 @@ class GameState:
         return None
 
       x, y = position
-      return self.grid[y-1][x-1]
+      return self.grid[y - 1][x - 1]
 
     def door_between(self, position1: tuple, position2: tuple) -> dict:
       for door in self.doors:
@@ -72,7 +71,7 @@ class GameState:
       return None
 
     def damaged_wall_between(self, position1: tuple, position2: tuple) -> dict:
-      for wall in self.walls:
+      for wall in self.damaged_walls:
         between = wall["between"]
 
         p1 = tuple(between[0])
@@ -92,14 +91,14 @@ class GameState:
       if cell is None:
         return None
 
-      if y2 == y1 + 1:
-        return cell[2] == "1"
+      if y2 == y1 - 1:
+        return cell[0] == "1"
 
       if x2 == x1 - 1:
         return cell[1] == "1"
 
-      if y2 == y1 - 1:
-        return cell[0] == "1"
+      if y2 == y1 + 1:
+        return cell[2] == "1"
 
       if x2 == x1 + 1:
         return cell[3] == "1"
@@ -119,17 +118,17 @@ class GameState:
       cell1 = list(cell1)
       cell2 = list(cell2)
 
-      if y2 == y1 + 1:
-          cell1[2] = "0"
-          cell2[0] = "0"
+      if y2 == y1 - 1:
+          cell1[0] = "0"
+          cell2[2] = "0"
 
       elif x2 == x1 - 1:
           cell1[1] = "0"
           cell2[3] = "0"
 
-      elif y2 == y1 - 1:
-          cell1[0] = "0"
-          cell2[2] = "0"
+      elif y2 == y1 + 1:
+          cell1[2] = "0"
+          cell2[0] = "0"
 
       elif x2 == x1 + 1:
           cell1[3] = "0"
@@ -137,10 +136,9 @@ class GameState:
 
       else:
           return False
-      x1i, y1i = x1 - 1, y1 - 1
-      x2i, y2i = x2 - 1, y2 - 1
-      self.grid[x1i][y1i] = "".join(cell1)
-      self.grid[x2i][y2i] = "".join(cell2)
+
+      self.grid[y1 - 1][x1 - 1] = "".join(cell1)
+      self.grid[y2 - 1][x2 - 1] = "".join(cell2)
 
       return True
 
@@ -228,10 +226,10 @@ class GameState:
 
       return False
 
-    #Neighbors
+    # Neighbors
     def get_neighbors(self, position):
       x, y = position
-      posible = [(x, y + 1), (x - 1, y), (x, y - 1), (x + 1, y)]
+      posible = [(x, y - 1), (x - 1, y), (x, y + 1), (x + 1, y)]
       neighbors = []
       for pos in posible:
         if self.in_bounds(pos):
@@ -275,7 +273,7 @@ class Pathfinder:
     COST_OPEN_DOOR = 1
     COST_DAMAGE_WALL = 2
     COST_CARRY_VICTIM = 2
-    COST_EXTINGUISH_FIRE = 2
+    COST_EXTINGUISH_FIRE = 1
     COST_CLEAR_SMOKE = 1
 
     BLOCKED = float("inf")
@@ -285,39 +283,57 @@ class Pathfinder:
     def heuristica(self, pos, goal):
       return (abs(pos[0] - goal[0]) + abs(pos[1] - goal[1]) )* self.COST_MOVE
 
-    def costo_celda(self,pos):
+    def costo_celda(self, pos, cargando_victima = False):
+      # No entrar a fuego con victima
+      if cargando_victima and self.state.is_fire(pos):
+        return self.BLOCKED
+
+      # Moverse con victima cuesta 2 AP
+      if cargando_victima:
+        return self.COST_CARRY_VICTIM
+
+      # Moverse a fuego cuesta 2 AP
       if self.state.is_fire(pos):
         return self.COST_MOVE_FIRE
 
+      # Moverse a humo cuesta 1 AP
       if self.state.is_smoke(pos):
         return self.COST_SMOKE
 
-      #celda vacia
+      # Moverse a celda vacia cuesta 1 AP
       return self.COST_MOVE
 
-    def costo_borde(self,u,v):
+    def costo_borde(self, u, v, cargando_victima = False):
+      costo_celda = self.costo_celda(v, cargando_victima)
+
+      # Si destino bloqueado
+      if costo_celda == self.BLOCKED:
+        return self.BLOCKED
+
       door = self.state.door_between(u,v)
 
       if door:
         if door["status"] in ["open", "destroyed"]:
-          return self.costo_celda(v)
+          return self.costo_celda(v, cargando_victima)
 
-        return self.COST_OPEN_DOOR + self.costo_celda(v)
+        return self.COST_OPEN_DOOR + self.costo_celda(v, cargando_victima)
 
       wall = self.state.damaged_wall_between(u,v)
 
       if wall:
-        return self.COST_DAMAGE_WALL + self.costo_celda(v)
+        return self.COST_DAMAGE_WALL + self.costo_celda(v, cargando_victima)
 
       if self.state.wall_between(u,v):
-        return (2*self.COST_DAMAGE_WALL) + self.costo_celda(v)
+        return (2*self.COST_DAMAGE_WALL) + self.costo_celda(v, cargando_victima)
 
-      return self.costo_celda(v)
+      return self.costo_celda(v, cargando_victima)
 
-    def a_estrella(self, start, goal):
+    def a_estrella(self, start, goal, cargando_victima = False):
       dist = {start:0}
       prev = {}
+
       prioridad = self.heuristica(start,goal)
+
       pq = PriorityQueue()
       pq.push(prioridad, start)
       steps = 0
@@ -329,7 +345,7 @@ class Pathfinder:
           break
 
         for v in self.state.get_neighbors(u):
-          cost = self.costo_borde(u,v)
+          cost = self.costo_borde(u, v, cargando_victima)
           if cost >= self.BLOCKED:
             continue
 
@@ -344,15 +360,15 @@ class Pathfinder:
 
       path = []
       u = goal
-      if prev.get(u) is not None or u ==start:
+      if prev.get(u) is not None or u == start:
         while u is not None:
           path.insert(0,u)
           u = prev.get(u)
 
       return (dist.get(goal, self.BLOCKED), path, steps)
 
-    def find_path(self,start,goal):
-      return self.a_estrella(start,goal)
+    def find_path(self, start, goal, cargando_victima = False):
+      return self.a_estrella(start,goal, cargando_victima)
 
 class ReservationManager:
     def __init__(self):
@@ -399,7 +415,31 @@ class ActionBuilder:
         self.actions = []
 
     def puede_pagar(self, cost):
-      return cost <= self.remaining_ap
+        return cost <= self.remaining_ap
+
+    def fire_to_smoke(self, position, cost = 1):
+        if not self.puede_pagar(cost):
+            return False
+
+        if position not in self.state.fire:
+            return False
+
+        self.remaining_ap -= cost
+
+        self.actions.append({
+            "order": len(self.actions) + 1,
+            "type": "extinguish_fire",
+            "position": list(position),
+            "cost": cost,
+            "remaining_ap": self.remaining_ap
+        })
+
+        self.state.fire.remove(position)
+
+        if position not in self.state.smoke:
+            self.state.smoke.append(position)
+
+        return True
 
     def move(self, from_pos, to_pos, cost=1):
         if cost > self.remaining_ap:
@@ -424,6 +464,7 @@ class ActionBuilder:
       self.remaining_ap -= cost
       self.actions.append({
           "order": len(self.actions) + 1,
+          "id": self.state.door_between(between[0], between[1])["id"],
           "type": "open_door",
           "between": [list(between[0]), list(between[1])],
           "cost": cost,
@@ -433,23 +474,6 @@ class ActionBuilder:
       door = self.state.door_between(between[0], between[1])
       if door:
           door["status"] = "open"
-
-      return True
-
-    def extinguish_fire(self, position, cost = 2):
-      if not self.puede_pagar(cost):
-          return False
-      self.remaining_ap -= cost
-      self.actions.append({
-          "order": len(self.actions) + 1,
-          "type": "extinguish_fire",
-          "position": list(position),
-          "cost": cost,
-          "remaining_ap": self.remaining_ap
-      })
-
-      if position in self.state.fire:
-          self.state.fire.remove(position)
 
       return True
 
@@ -487,12 +511,12 @@ class ActionBuilder:
 
       # Elimina de damaged_walls al recibir un segundo daño
       if damaged_wall:
-        self.state.walls.remove(damaged_wall)
+        self.state.damaged_walls.remove(damaged_wall)
         self.state.destroy_wall(between[0], between[1])
 
       else:
         # Agrega a damaged_walls al ser su primer daño
-        self.state.walls.append({
+        self.state.damaged_walls.append({
             "id": len(self.state.damaged_walls) + random.randint(100, 1000),
             "between": [list(between[0]), list(between[1])]
         })
@@ -592,6 +616,79 @@ class Bombero(Agent):
 
         return vecinos
 
+    def puede_actuar_sobre(self, posicion):
+        # Debe estar en una las posiciones adyacentes
+        if posicion not in self.state.get_neighbors(self.pos_actual):
+            return False
+
+        # Puerta cerrada bloquea accion
+        door = self.state.door_between(self.pos_actual, posicion)
+        if door and door["status"] == "closed":
+            return False
+
+        # Pared con daño bloquea accion
+        damaged_wall = self.state.damaged_wall_between(self.pos_actual, posicion)
+        if damaged_wall:
+            return False
+
+        # Pared intacta bloquea accion
+        if self.state.wall_between(self.pos_actual, posicion):
+            return False
+
+        return True
+
+    def puede_atravesar_fuego(self, siguiente):
+        # Con victima no se puede entrar a fuego
+        if self.cargando_victima:
+            return False
+
+        # Si la siguiente celda no tiene fuego no hay problema
+        if not self.state.is_fire(siguiente):
+            return True
+
+        # Costo para entrar a celda con fuego (teniendo en cuenta pared/puerta)
+        costo_entrada = self.pathfinder.costo_borde(self.pos_actual, siguiente, cargando_victima = False)
+
+        if self.pathfinder.BLOCKED <= costo_entrada:
+            return False
+
+        if self.builder.remaining_ap < costo_entrada:
+            return False
+
+        ap_despues = self.builder.remaining_ap - costo_entrada
+
+        for salida in self.state.get_neighbors(siguiente):
+            if self.state.is_fire(salida):
+                continue
+
+            costo_salida = self.pathfinder.costo_borde(siguiente, salida, cargando_victima = False)
+
+            if costo_salida <= ap_despues:
+                return True
+
+        return False
+
+    def _salir_de_fuego(self):
+      opciones = []
+
+      for vecino in self.state.get_neighbors(self.pos_actual):
+          # No salir a celda con fuego
+          if self.state.is_fire(vecino):
+              continue
+
+          costo = self.pathfinder.costo_borde(self.pos_actual, vecino, cargando_victima = False)
+
+          if costo <= self.builder.remaining_ap:
+              opciones.append((costo, vecino))
+
+      if not opciones:
+          return False
+
+      # Celda de menor costo (teniendo en cuenta puertas/paredes)
+      costo, vecino = min(opciones, key = lambda x: x[0])
+
+      return self._cruzar_a(vecino)
+
     def decide(self):
         while self.builder.remaining_ap > 0:
             if not self._siguiente_accion():
@@ -602,11 +699,17 @@ class Bombero(Agent):
         if self.cargando_victima:
             return self._avanzar_a_salida()
 
+        if self.state.is_fire(self.pos_actual):
+            return self._salir_de_fuego()
+
         poi_aqui = self.sensor_celda_actual()["poi"]
 
         if poi_aqui:
-            poi_real = self.state.reveal_poi(poi_aqui["id"])
-            self.builder.reveal_poi(poi_real["id"], poi_real["position"])
+            if poi_aqui["status"] == "unknown":
+                poi_real = self.state.reveal_poi(poi_aqui["id"])
+                self.builder.reveal_poi(poi_real["id"], poi_real["position"])
+            else:
+                poi_real = poi_aqui
 
             if poi_real["result"] == "victim":
                 return self._recoger_aqui(poi_real)
@@ -616,15 +719,16 @@ class Bombero(Agent):
                 return False
 
         for fire in self.state.get_fire_targets():
-            if fire in self.state.get_neighbors(self.pos_actual):
+            if self.puede_actuar_sobre(fire):
               exito = self._atender_fuego(fire)
               if exito:
                   self.reservations.release("fire", tuple(fire))
+                  self.reservations.reserve("smoke", tuple(fire), self.state.my_agent()["id"])
 
               return exito
 
         for smoke in self.state.get_smoke_targets():
-            if smoke in self.state.get_neighbors(self.pos_actual):
+            if self.puede_actuar_sobre(smoke):
                 exito = self._atender_humo(smoke)
                 if exito:
                     self.reservations.release("smoke", tuple(smoke))
@@ -696,7 +800,7 @@ class Bombero(Agent):
         return None
 
     def _avanzar_hacia(self, goal):
-        cost, path, steps = self.pathfinder.find_path(self.pos_actual, goal)
+        cost, path, steps = self.pathfinder.find_path(self.pos_actual, goal, self.cargando_victima)
 
         if cost == self.pathfinder.BLOCKED:
             return False
@@ -707,6 +811,15 @@ class Bombero(Agent):
         return self._cruzar_a(path[1])
 
     def _cruzar_a(self, siguiente):
+        # No entrar a fuego llevando una victima
+        if self.cargando_victima and self.state.is_fire(siguiente):
+            return False
+
+        # Solo entrar a fuego si despues se puede salir
+        if not self.cargando_victima and self.state.is_fire(siguiente):
+            if not self.puede_atravesar_fuego(siguiente):
+                return False
+
         between = [self.pos_actual, siguiente]
 
         # Puerta
@@ -733,7 +846,12 @@ class Bombero(Agent):
             return exito
 
         # Moverse celda normal
-        exito = self.builder.move(self.pos_actual, siguiente, cost = self.pathfinder.COST_MOVE)
+        cost = self.pathfinder.costo_celda(siguiente, self.cargando_victima)
+
+        if not self.builder.puede_pagar(cost):
+            return False
+
+        exito = self.builder.move(self.pos_actual, siguiente, cost)
 
         if exito:
             self.pos_actual = siguiente
@@ -748,19 +866,26 @@ class Bombero(Agent):
         return exito
 
     def _avanzar_a_salida(self):
-        salida_mas_cercana = min(
-            self.state.entrances,
-            key=lambda e: self.pathfinder.a_estrella(self.pos_actual, tuple(e))[0]
-        )
+        salidas_posibles = []
 
-        if self.pos_actual == tuple(salida_mas_cercana):
+        for entrada in self.state.entrances:
+            cost, path, steps = self.pathfinder.find_path(self.pos_actual, tuple(entrada), self.cargando_victima)
+            if cost < self.pathfinder.BLOCKED:
+                salidas_posibles.append((cost, path))
+
+        if not salidas_posibles:
+            return False
+
+        costo_salida, camino_salida = min(salidas_posibles, key = lambda x: x[0])
+
+        if self.pos_actual == tuple(camino_salida[-1]):
             self.cargando_victima = False
             return self.builder.rescue_victim(self.pos_actual)
 
-        return self._avanzar_hacia(tuple(salida_mas_cercana))
+        return self._avanzar_hacia(tuple(camino_salida[-1]))
 
     def _atender_fuego(self, position):
-        return self.builder.extinguish_fire(position, cost = self.pathfinder.COST_EXTINGUISH_FIRE)
+        return self.builder.fire_to_smoke(position, cost = self.pathfinder.COST_EXTINGUISH_FIRE)
 
     def _atender_humo(self, position):
         return self.builder.clear_smoke(position, cost = self.pathfinder.COST_CLEAR_SMOKE)
@@ -808,6 +933,7 @@ class CommunicationHandler:
                 "actions": []
             }
         bombero = self.modelo.get_or_create_bombero(state.current_agent_id, state, pathfinder, self.reservations)
+
         return bombero.decide()
 
 class Server(BaseHTTPRequestHandler):
@@ -831,8 +957,6 @@ class Server(BaseHTTPRequestHandler):
             resultado = Server.handler.process_turn(unity_json)
 
         except Exception as e:
-            import traceback
-            traceback.print_exc()   # esto imprime el traceback completo en la terminal del servidor
             resultado = {"error": str(e)}
 
         self._set_response()

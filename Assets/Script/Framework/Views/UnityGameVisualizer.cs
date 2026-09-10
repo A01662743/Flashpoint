@@ -354,19 +354,15 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     }
     private void RegistrarFuegosIniciales()
     {
-        // Busca todos los objetos con el script Fuego que ya están en la escena
-        Fuego[] fuegosEnEscena = FindObjectsByType<Fuego>(FindObjectsSortMode.None);
-
-        foreach (Fuego fuego in fuegosEnEscena)
+        if (stateManager == null || stateManager.CurrentState == null || stateManager.CurrentState.fire == null)
         {
-            // Convertimos su posición de mundo a coordenadas de Grid
-            Vector2Int gridPos = WorldToGridPosition(fuego.transform.position);
+            Debug.LogWarning("[UnityGameVisualizer] No se pudo generar fuego inicial: stateManager o CurrentState.fire es null.");
+            return;
+        }
 
-            if (!fireObjects.ContainsKey(gridPos))
-            {
-                fireObjects.Add(gridPos, fuego.gameObject);
-                fuego.gameObject.name = $"Fire_[{gridPos.x},{gridPos.y}]";
-            }
+        foreach (int[] firePos in stateManager.CurrentState.fire)
+        {
+            SpawnFireVisual(firePos[0], firePos[1]);
         }
     }
     public void RegisterWallByCoordinates(int x1, int y1, int x2, int y2, GameObject wallGO)
@@ -779,6 +775,33 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     }
 
     public void ExecuteRemoveSmokeVisual(int x, int y)
+    public void OpenDoorVisual(int doorId)
+    {
+        if (!doorObjects.ContainsKey(doorId))
+        {
+            TryRegisterInitialEntities();
+        }
+
+        if (doorObjects.TryGetValue(doorId, out GameObject doorGO) && doorGO != null)
+        {
+            Puerta puertaScript = doorGO.GetComponentInChildren<Puerta>();
+            if (puertaScript != null)
+            {
+                doorGO.transform.Rotate(0f, 90f, 0f);
+                Debug.Log($"[VISUAL] Puerta ID {doorId} abierta visualmente (acción normal, sin explosión).");
+            }
+            else
+            {
+                Debug.LogWarning($"[VISUAL] Puerta ID {doorId} encontrada pero sin componente Puerta.");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"[VISUAL] No se pudo encontrar la Puerta ID {doorId} para abrir.");
+        }
+    }
+
+    public void RemoveSmokeVisual(int x, int y)
     {
         Debug.Log($"[VISUAL] ExecuteRemoveSmokeVisual llamado para casilla ({x}, {y}).");
         Vector2Int pos = new Vector2Int(x, y);

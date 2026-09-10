@@ -9,6 +9,7 @@ public interface IGameVisualizer
     void DamageWallVisual(int wallId, int[] coordA, int[] coordB);
     void DestroyWallVisual(int wallId, int[] coordA, int[] coordB);
     void DestroyDoorVisual(int doorId, int x, int y);
+    void OpenDoorVisual(int doorId);
     
     void RemovePOIVisual(int poiId);
     void EliminateAgentVisual(int agentId);
