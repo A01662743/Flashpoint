@@ -87,7 +87,9 @@ PrefabInstance:
       value: Pared_chica (1)
       objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: 2475783379992033066, guid: f7029c28a16d4c347ab25453335e6ccb, type: 3}
+    - {fileID: 7211965262452492065, guid: f7029c28a16d4c347ab25453335e6ccb, type: 3}
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: f7029c28a16d4c347ab25453335e6ccb, type: 3}
@@ -226,12 +228,18 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1845288178589859832, guid: f7029c28a16d4c347ab25453335e6ccb, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6860724493614814487, guid: f7029c28a16d4c347ab25453335e6ccb, type: 3}
       propertyPath: m_Name
       value: Pared_chica
       objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: 2475783379992033066, guid: f7029c28a16d4c347ab25453335e6ccb, type: 3}
+    - {fileID: 7211965262452492065, guid: f7029c28a16d4c347ab25453335e6ccb, type: 3}
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: f7029c28a16d4c347ab25453335e6ccb, type: 3}

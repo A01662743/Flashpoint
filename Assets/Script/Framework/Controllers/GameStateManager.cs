@@ -7,6 +7,40 @@ public class GameStateManager : MonoBehaviour
     public static GameStateManager Instance { get; private set; }
     public GameState CurrentState { get; private set; }
 
+    /// <summary>
+    /// Se dispara una única vez, justo después de que CurrentState queda listo
+    /// (JSON parseado y resultados de POI asignados). Cualquier sistema que
+    /// necesite el estado inicial (visualizador, IA, etc.) debe suscribirse a
+    /// esto en su propio Awake() en vez de asumir un orden de Start().
+    /// Si alguien se suscribe después de que el estado ya cargó, se le avisa
+    /// de inmediato (ver método Subscribe abajo) para no perder el evento.
+    /// </summary>
+    public event System.Action OnInitialStateLoaded;
+    private bool initialStateReady = false;
+
+    /// <summary>
+    /// Suscripción segura: si el estado ya está listo cuando alguien llama esto,
+    /// invoca el callback inmediatamente en vez de esperar un evento que ya pasó.
+    /// </summary>
+    public void SubscribeToInitialState(System.Action callback)
+    {
+        if (callback == null) return;
+
+        if (initialStateReady)
+        {
+            callback.Invoke();
+        }
+        else
+        {
+            OnInitialStateLoaded += callback;
+        }
+    }
+
+    public void UnsubscribeFromInitialState(System.Action callback)
+    {
+        OnInitialStateLoaded -= callback;
+    }
+
     [Header("Configuración de Archivos")]
     [Tooltip("Nombre del archivo JSON dentro de Assets/Resources (sin la extensión .json)")]
     public string initialJsonFileName = "Initial_State";
@@ -103,6 +137,12 @@ public class GameStateManager : MonoBehaviour
                     poi.result = res;
                 }
             }
+
+            // El estado ya está completamente listo (parseado + POIs con resultado
+            // asignado): a partir de aquí es seguro que cualquier suscriptor lea
+            // CurrentState sin encontrarse con datos a medias.
+            initialStateReady = true;
+            OnInitialStateLoaded?.Invoke();
         }
         else
         {
