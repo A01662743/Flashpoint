@@ -13,6 +13,7 @@ public class POIScript : MonoBehaviour
     [Header("Modelos de Víctima")]
     [Tooltip("Lista de GameObjects hijos que representan las distintas apariencias o modelos de víctima")]
     public List<GameObject> victimModels = new List<GameObject>();
+    public GameObject QuestionmarkModel; // Modelo de signo de interrogación para indicar que es un POI
     private Coroutine carriedCOR = null;
 
     /// Inicia la secuencia de animación y anexa el POI al agente correspondiente.
@@ -47,6 +48,7 @@ public class POIScript : MonoBehaviour
             // Desactivar todos los modelos por seguridad
             foreach (GameObject model in victimModels)
             {
+                QuestionmarkModel.SetActive(false); // Desactivar el signo de interrogación
                 if (model != null) model.SetActive(false);
             }
 
