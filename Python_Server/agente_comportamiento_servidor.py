@@ -725,6 +725,7 @@ class Bombero(Agent):
               exito = self._atender_fuego(fire)
               if exito:
                   self.reservations.release("fire", tuple(fire))
+                  self.reservations.reserve("smoke", tuple(fire), self.state.my_agent()["id"])
 
               return exito
 
