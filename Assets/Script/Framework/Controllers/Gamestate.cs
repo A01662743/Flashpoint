@@ -25,7 +25,7 @@ public class POI
 {
     public int id;
     public int[] position;
-    public string status; // Opcional ("unknown", "known", "carried", etc.)
+    public string status; // Opcional ("unknown", "known")
     public string result; // "victim", "false_alarm"
 }
 

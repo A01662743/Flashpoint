@@ -13,6 +13,7 @@ public class GameStateManager : MonoBehaviour
 
     [Header("Referencias de Sistemas")]
     public SmokeSpawnManager smokeSpawnManager;
+    public POIChoreManager POIChoreManager;
 
     private void Awake()
     {
@@ -31,9 +32,15 @@ public class GameStateManager : MonoBehaviour
 
     private void Update()
     {
+        // Al presionar la tecla X en el teclado trigger smoke spawn
         if (Input.GetKeyDown(KeyCode.X))
         {
             TriggerSmokeProcess();
+        }
+        // Al presionar la tecla C en el teclado trigger poi chore
+        if (Input.GetKeyDown(KeyCode.C))
+        {
+            TriggerPOIProcess();
         }
     }
 
@@ -54,6 +61,23 @@ public class GameStateManager : MonoBehaviour
         Debug.LogWarning("Finalizado el ciclo smoke spawn");
     }
 
+    public void TriggerPOIProcess()
+    {
+        if (POIChoreManager != null)
+        {
+            Debug.Log("[GameManager] Presionada tecla C: Ejecutando ProcessPOI()...");
+            POIChoreManager.ProcesarPOI();
+        }
+        else
+        {
+            Debug.LogWarning("[GameManager] No se ha asignado la referencia a POIChoreManager en el Inspector.");
+        }
+        Debug.LogWarning("Finalizado el ciclo POI Chore");
+    }
+
+    /// <summary>
+    /// Lee el archivo JSON base desde la carpeta Resources
+    /// </summary>
     public void LoadInitialState()
     {
         TextAsset jsonFile = Resources.Load<TextAsset>(initialJsonFileName);
@@ -62,6 +86,23 @@ public class GameStateManager : MonoBehaviour
         {
             LoadGameState(jsonFile.text);
             Debug.Log($"[GameStateManager] JSON inicial '{initialJsonFileName}' cargado con éxito.");
+
+            // Asignar resultado aleatorio respetando contadores para cada POI del JSON
+            if (CurrentState != null && CurrentState.poi != null)
+            {
+                foreach (POI poi in CurrentState.poi)
+                {
+                    string res = POIChoreManager.ResultadoRand();
+
+                    if (res == "ERROR")
+                    {
+                        Debug.LogError("[GameStateManager] Se interrumpió la asignación de resultados en los POIs iniciales.");
+                        break;
+                    }
+
+                    poi.result = res;
+                }
+            }
         }
         else
         {

@@ -13,10 +13,39 @@ public class WallIdentity : MonoBehaviour
     public int cellA_Col;
     public int cellB_Row;
     public int cellB_Col;
+    
+    public enum Estado { Intacto, Danado, Destruido }
+    
+    [Header("Modelos de cada estado")]
+    [SerializeField] private GameObject modeloIntacto;
+    [SerializeField] private GameObject modeloDanado;
+    [SerializeField] private GameObject modeloDestruido;
 
+    public void CambiarEstado(Estado nuevoEstado)
+    {
+        // Desactivamos todos primero
+        modeloIntacto.SetActive(false);
+        modeloDanado.SetActive(false);
+        modeloDestruido.SetActive(false);
+
+        // Activamos solo el correspondiente
+        switch (nuevoEstado)
+        {
+            case Estado.Intacto:
+                modeloIntacto.SetActive(true);
+                break;
+            case Estado.Danado:
+                modeloDanado.SetActive(true);
+                break;
+            case Estado.Destruido:
+                modeloDestruido.SetActive(true);
+                break;
+        }
+    }
     private void Start()
     {
         CalculateGridCoordinates();
+        CambiarEstado(Estado.Intacto);
     }
 
     public void CalculateGridCoordinates()
