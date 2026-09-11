@@ -9,6 +9,9 @@ public class SmokeSpawnManager : MonoBehaviour
     public MonoBehaviour visualizerObject; // Objeto que implementa IGameVisualizer
     private IGameVisualizer visualizer => visualizerObject as IGameVisualizer;
 
+    [Header("Referencias UI")]
+    [SerializeField] private HUDPlayingManager hudManager;
+
     private readonly int[][] directions = new int[][]
     {
         new int[] { 0, -1 }, // Norte
@@ -99,6 +102,11 @@ public class SmokeSpawnManager : MonoBehaviour
                     }
 
                     state.poi.RemoveAt(i);
+
+                    if (hudManager != null)
+                    {
+                        hudManager.RefreshHUD();
+                    }
                 }
             }
         }
@@ -186,6 +194,12 @@ public class SmokeSpawnManager : MonoBehaviour
                     state.walls.Remove(damagedWall);
                     state.game.damage++;
                     visualizer?.DestroyWallVisual(damagedWall.id, damagedWall.between[0], damagedWall.between[1]);
+                    if (hudManager != null)
+                    {
+                        hudManager.RefreshHUD();
+                    }
+
+                    Debug.Log($"[LOGICA-PARED] (síncrono) Pared destruida entre ({currentX},{currentY}) y ({nextX},{nextY}). ID {damagedWall.id}. Daño total: {state.game.damage}.");
 
                     continueLine = false;
                     break;
@@ -207,6 +221,10 @@ public class SmokeSpawnManager : MonoBehaviour
                     state.walls.Add(newDamagedWall);
                     state.game.damage++;
                     visualizer?.DamageWallVisual(newDamagedWall.id, newDamagedWall.between[0], newDamagedWall.between[1]);
+                    if (hudManager != null)
+                    {
+                        hudManager.RefreshHUD();
+                    }
 
                     continueLine = false;
                     break;
@@ -222,6 +240,10 @@ public class SmokeSpawnManager : MonoBehaviour
                     state.game.damage += 2;
                     Debug.Log($"[Propagación Fuego] Puerta ID {door.id} destruida entre ({currentX}, {currentY}) y ({nextX}, {nextY}).");
                     visualizer?.DestroyDoorVisual(door.id, currentX, currentY);
+                    if (hudManager != null)
+                    {
+                        hudManager.RefreshHUD();
+                    }
                     continueLine = false;
                     break;
                 }
