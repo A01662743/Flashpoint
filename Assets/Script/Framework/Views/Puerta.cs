@@ -5,9 +5,18 @@ public class Puerta : MonoBehaviour
 {
     private Coroutine doorAnimCOR;
 
+    [Header("Referencia al Pivot")] 
+    public Transform pivot;
+
     /// <summary>
     /// Activa la animación pasando la posición en el mundo del fuego que la detonó.
     /// </summary>
+    /// 
+    public void AbrirNormal(float angulo = 90f)
+    {
+        Transform objetivoRotacion = pivot != null ? pivot : transform;
+        objetivoRotacion.Rotate(0f, angulo, 0f);
+    }
     public void OpenDoorFromFire(Vector3 fireWorldPos)
     {
         if (doorAnimCOR == null)

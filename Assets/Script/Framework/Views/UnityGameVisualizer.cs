@@ -664,6 +664,31 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
     /// Busca el GameObject de la pared. Si no está asociada al ID del JSON,
     /// la busca por coordenadas y vincula el ID dinámicamente.
     /// </summary>
+    /// 
+    public void OpenDoorVisual(int doorId)
+    {
+        if (!doorObjects.ContainsKey(doorId))
+        {
+            TryRegisterInitialEntities();
+        }
+        if (doorObjects.TryGetValue(doorId, out GameObject doorGO) && doorGO != null)
+        {
+            Puerta puertaScript = doorGO.GetComponentInChildren<Puerta>();
+            if (puertaScript != null)
+            {
+                puertaScript.AbrirNormal();
+                Debug.Log($"[VISUAL] Puerta ID {doorId} abierta visualmente.");
+            }
+            else
+            {
+                Debug.LogWarning($"[VISUAL] El GameObject de la Puerta ID {doorId} no tiene el componente Puerta.");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"[VISUAL] No se pudo encontrar la puerta id {doorId} para abrir");
+        }
+    }
     private GameObject FindWallGameObject(int wallId, int[] coordA, int[] coordB)
     {
         // 1. Intentar buscar por ID del JSON
