@@ -347,6 +347,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: pared_ladrillos_danada
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: d1f5060b6d4f17c4bb8ce3d56f311be9, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:
     - {fileID: 8164078558771037576, guid: d1f5060b6d4f17c4bb8ce3d56f311be9, type: 3}
@@ -489,6 +493,10 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: 4c511643ef99bf24ea84b1bc0fb822cf, type: 3}
       propertyPath: m_Name
       value: pared_ladrillos_hoyo
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 4c511643ef99bf24ea84b1bc0fb822cf, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:
