@@ -158,6 +158,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b64729e843a115743afc129405678d20, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Puerta
+  pivot: {fileID: 5419936792490527174}
 --- !u!1 &4605380518370792119
 GameObject:
   m_ObjectHideFlags: 0
