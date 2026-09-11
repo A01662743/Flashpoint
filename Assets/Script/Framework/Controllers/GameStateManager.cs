@@ -60,6 +60,8 @@ public class GameStateManager : MonoBehaviour
             return;
         }
         Instance = this;
+
+        hudManager = FindObjectOfType<HUDPlayingManager>();
     }
 
     private void Start()
@@ -283,7 +285,6 @@ public class GameStateManager : MonoBehaviour
             case "damage_Wall":
                 DañarOPactualizarPared(accion.between);
                 agente.ap = accion.remaining_ap;
-                hudManager?.RefreshHUD();
                 break;
 
             case "pickup_victim":
@@ -299,19 +300,18 @@ public class GameStateManager : MonoBehaviour
                 {
                     FindObjectOfType<UnityGameVisualizer>()?.RemovePOIVisual(accion.poi_id);
                 }
-                hudManager?.RefreshHUD();
                 break;
 
             case "rescue_victim":
                 agente.carrying_victim = false;
                 CurrentState.game.rescued++;
-                hudManager?.RefreshHUD();
                 break;
 
             default:
                 Debug.LogWarning($"[GameStateManager] Acción no reconocida: {accion.type}");
                 break;
         }
+        hudManager?.RefreshHUD();
     }
 
     private void AbrirPuertaEnEstado(List<List<int>> between)
