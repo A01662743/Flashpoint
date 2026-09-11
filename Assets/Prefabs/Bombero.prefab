@@ -268,6 +268,6 @@ MonoBehaviour:
   esMiTurno: 0
   miCamara: {fileID: 6435648999348302651}
   apDisponibles: 0
-  izq: 276
-  der: 275
-  front: 273
+  agentId: 0
+  duracion: 2
+  alturaCurva: 10

@@ -907,7 +907,11 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
             Agent agentData = state.agents?.Find(a => a.id == agentId);
             if (agentData != null)
             {
-                agentData.position = new int[] { newPos.x, newPos.y };
+                // 1. Convertir la posición de la grilla (X, Y) a coordenadas del mundo 3D (X, Y, Z)
+                Vector3 worldPos = GridToWorldPosition(newPos.x, newPos.y);
+
+                // 2. Pasar las coordenadas X y Z resultantes a MoveAgentVisual (o encolarlo)
+                MoveAgentVisual(agentId, worldPos.x, worldPos.z);
             }
 
             // Si hay fuego en la casilla destino, eliminarlo del estado y de la escena
@@ -964,6 +968,53 @@ public class UnityGameVisualizer : MonoBehaviour, IGameVisualizer
         else
         {
             Debug.LogWarning($"[VISUAL] No se encontró el POI ID {poiId} en POIObjects para ser cargado por el Agente ID {agentId}.");
+        }
+    }
+
+
+
+    public void MoveAgentVisual(int agentId, float targetX, float targetZ)
+    {
+        // 1. Verificar si el bombero está en el diccionario de objetos visuales
+        if (!agentObjects.ContainsKey(agentId))
+        {
+            Debug.LogWarning($"[VISUAL] El Bombero {agentId} no está en el diccionario, intentando registrar entidades...");
+            TryRegisterInitialEntities();
+        }
+
+        // 2. Intentar obtener el GameObject desde el diccionario
+        if (agentObjects.TryGetValue(agentId, out GameObject agentGO))
+        {
+            if (agentGO != null)
+            {
+                // 3. Obtener el script Bombero con TryGetComponent y llamar a MoverA
+                if (agentGO.TryGetComponent<Bombero>(out var scriptBombero))
+                {
+                    scriptBombero.MoverA(targetX, targetZ);
+                }
+                else
+                {
+                    Debug.LogWarning($"[VISUAL] El GameObject del Bombero {agentId} no tiene el componente 'Bombero'.");
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[VISUAL] Bombero ID {agentId} estaba en el diccionario pero su GameObject es null.");
+            }
+        }
+        else
+        {
+            // 4. RESPALDO DE EMERGENCIA: Buscar por nombre en la escena (p. ej. "Bombero_1" o "Agent_1")
+            GameObject fallbackAgent = GameObject.Find($"Agent_{agentId}");
+            if (fallbackAgent != null && fallbackAgent.TryGetComponent<Bombero>(out var scriptBomberoFallback))
+            {
+                scriptBomberoFallback.MoverA(targetX, targetZ);
+                Debug.Log($"[VISUAL] Bombero ID {agentId} movido mediante búsqueda de respaldo.");
+            }
+            else
+            {
+                Debug.LogWarning($"[VISUAL] No se encontró el Bombero con ID {agentId} para mover.");
+            }
         }
     }
 }
