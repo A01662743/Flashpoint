@@ -7,6 +7,8 @@ public class POIChoreManager : MonoBehaviour
     [SerializeField] public GameStateManager stateManager; // Referencia al manager del estado
     public MonoBehaviour visualizerObject; // Objeto que implementa IGameVisualizer
     private IGameVisualizer visualizer => visualizerObject as IGameVisualizer;
+    [Header("Referencias UI")]
+    [SerializeField] private HUDPlayingManager hudManager;
 
     [Header("Rango del Grid")]
     [SerializeField] private int minX = 1;
@@ -106,7 +108,13 @@ public class POIChoreManager : MonoBehaviour
                 {
                     int eliminados = stateManager.CurrentState.poi.RemoveAll(p => p.id == nuevoPoiRevelado.id);
                     Debug.Log($"[STATE] POI ID {nuevoPoiRevelado.id} eliminado del GameState ({eliminados} registro(s) remido(s)).");
+                
                 }
+            }
+
+            if (hudManager != null)
+            {
+                hudManager.RefreshHUD();
             }
 
             return; // Terminar ejecución
