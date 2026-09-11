@@ -7,6 +7,7 @@ public class GameStateManager : MonoBehaviour
     public static GameStateManager Instance { get; private set; }
     public GameState CurrentState { get; private set; }
 
+
     /// <summary>
     /// Se dispara una única vez, justo después de que CurrentState queda listo
     /// (JSON parseado y resultados de POI asignados). Cualquier sistema que
@@ -48,6 +49,8 @@ public class GameStateManager : MonoBehaviour
     [Header("Referencias de Sistemas")]
     public SmokeSpawnManager smokeSpawnManager;
     public POIChoreManager POIChoreManager;
+
+    private HUDPlayingManager hudManager;
 
     private void Awake()
     {
@@ -280,6 +283,7 @@ public class GameStateManager : MonoBehaviour
             case "damage_Wall":
                 DañarOPactualizarPared(accion.between);
                 agente.ap = accion.remaining_ap;
+                hudManager?.RefreshHUD();
                 break;
 
             case "pickup_victim":
@@ -295,11 +299,13 @@ public class GameStateManager : MonoBehaviour
                 {
                     FindObjectOfType<UnityGameVisualizer>()?.RemovePOIVisual(accion.poi_id);
                 }
+                hudManager?.RefreshHUD();
                 break;
 
             case "rescue_victim":
                 agente.carrying_victim = false;
                 CurrentState.game.rescued++;
+                hudManager?.RefreshHUD();
                 break;
 
             default:
@@ -341,6 +347,7 @@ public class GameStateManager : MonoBehaviour
             RemoverBitDePared(x1, y1, x2, y2);
             CurrentState.game.damage++;
             visualizer?.DestroyWallVisual(existente.id, new int[] { x1, y1 }, new int[] { x2, y2 });
+            hudManager?.RefreshHUD();
         }
         else
         {
@@ -351,6 +358,7 @@ public class GameStateManager : MonoBehaviour
             });
             CurrentState.game.damage++;
             visualizer?.DamageWallVisual(CurrentState.walls.Count, new int[] { x1, y1 }, new int[] { x2, y2 });
+            hudManager?.RefreshHUD();
         }
     }
 
