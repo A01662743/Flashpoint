@@ -7,6 +7,8 @@ public class POIChoreManager : MonoBehaviour
     [SerializeField] public GameStateManager stateManager; // Referencia al manager del estado
     public MonoBehaviour visualizerObject; // Objeto que implementa IGameVisualizer
     private IGameVisualizer visualizer => visualizerObject as IGameVisualizer;
+    [Header("Referencias UI")]
+    [SerializeField] private HUDPlayingManager hudManager;
 
     [Header("Rango del Grid")]
     [SerializeField] private int minX = 1;
@@ -29,7 +31,7 @@ public class POIChoreManager : MonoBehaviour
         }
 
         // 1. Verificar si siempre hay 3 registros de POI
-        if (currentState.poi != null && currentState.poi.Count >= 300) /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        if (currentState.poi != null && currentState.poi.Count >= 3)
         {
             Debug.Log("[POI Manager] Ya existen 3 POIs en el GameState. Proceso finalizado.");
             return;
@@ -106,7 +108,13 @@ public class POIChoreManager : MonoBehaviour
                 {
                     int eliminados = stateManager.CurrentState.poi.RemoveAll(p => p.id == nuevoPoiRevelado.id);
                     Debug.Log($"[STATE] POI ID {nuevoPoiRevelado.id} eliminado del GameState ({eliminados} registro(s) remido(s)).");
+                
                 }
+            }
+
+            if (hudManager != null)
+            {
+                hudManager.RefreshHUD();
             }
 
             return; // Terminar ejecución

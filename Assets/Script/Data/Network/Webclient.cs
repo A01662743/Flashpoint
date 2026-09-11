@@ -7,6 +7,7 @@ using Newtonsoft.Json;
 public class WebClient : MonoBehaviour
 {
     private string url = "http://localhost:8585";
+    public PlayerManager playerManager;
 
     public void EnviarTurno(GameState estado)
     {
@@ -81,18 +82,7 @@ public class WebClient : MonoBehaviour
         }
 
         Debug.Log($"[WebClient] Agente {bombero.agentId} terminó de ejecutar todas sus acciones.");
-    }
-
-    void Start()
-    {
-        if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState != null)
-        {
-            EnviarTurno(GameStateManager.Instance.CurrentState);
-        }
-        else
-        {
-            Debug.LogWarning("[WebClient] GameStateManager no tiene un CurrentState cargado todavía.");
-        }
+        playerManager.SiguienteTurno();
     }
 
     void Update() { }

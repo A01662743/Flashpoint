@@ -17,6 +17,7 @@ public interface IGameVisualizer
     Vector2Int WorldToGridPosition(Vector3 worldPos);
 
     void SpawnPOIVisual(int x, int y, int id);
+    void OpenDoorVisual(int doorId);
     void RemoveSmokeVisual(int x, int y);
     void RemoveFireVisual(int x, int y);
     void RespawnAgent(int agentId);

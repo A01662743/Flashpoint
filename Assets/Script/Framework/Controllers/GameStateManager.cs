@@ -7,6 +7,7 @@ public class GameStateManager : MonoBehaviour
     public static GameStateManager Instance { get; private set; }
     public GameState CurrentState { get; private set; }
 
+
     /// <summary>
     /// Se dispara una única vez, justo después de que CurrentState queda listo
     /// (JSON parseado y resultados de POI asignados). Cualquier sistema que
@@ -49,6 +50,8 @@ public class GameStateManager : MonoBehaviour
     public SmokeSpawnManager smokeSpawnManager;
     public POIChoreManager POIChoreManager;
 
+    private HUDPlayingManager hudManager;
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -57,6 +60,8 @@ public class GameStateManager : MonoBehaviour
             return;
         }
         Instance = this;
+
+        hudManager = FindObjectOfType<HUDPlayingManager>();
     }
 
     private void Start()
@@ -224,6 +229,14 @@ public class GameStateManager : MonoBehaviour
         }
     }
 
+    public void SetCurrentAgent(int agentId)
+    {
+        if(CurrentState != null)
+        {
+            CurrentState.current_agent = agentId;
+        }
+    }
+
     // ========================================================================
     // NUEVO: Aplicar acciones recibidas de Python
     // ========================================================================
@@ -254,11 +267,18 @@ public class GameStateManager : MonoBehaviour
 
             case "extinguish_fire":
                 CurrentState.fire.RemoveAll(f => f[0] == accion.position[0] && f[1] == accion.position[1]);
+                FindObjectOfType<UnityGameVisualizer>()?.RemoveFireVisual(accion.position[0], accion.position[1]);
+                if(!CurrentState.smoke.Exists(s => s[0] == accion.position[0] && s[1] == accion.position[1]))
+                {
+                    CurrentState.smoke.Add(new int[] { accion.position[0], accion.position[1] });
+                    FindObjectOfType<UnityGameVisualizer>()?.SpawnSmokeVisual(accion.position[0], accion.position[1]);
+                }
                 agente.ap = accion.remaining_ap;
                 break;
 
             case "clear_smoke":
                 CurrentState.smoke.RemoveAll(s => s[0] == accion.position[0] && s[1] == accion.position[1]);
+                FindObjectOfType<UnityGameVisualizer>()?.RemoveSmokeVisual(accion.position[0], accion.position[1]);
                 agente.ap = accion.remaining_ap;
                 break;
 
@@ -268,6 +288,7 @@ public class GameStateManager : MonoBehaviour
                 break;
 
             case "pickup_victim":
+                FindObjectOfType<UnityGameVisualizer>()?.CarryPOI(accion.poi_id, agentId);
                 CurrentState.poi.RemoveAll(p => p.id == accion.poi_id);
                 agente.carrying_victim = true;
                 break;
@@ -275,6 +296,10 @@ public class GameStateManager : MonoBehaviour
             case "reveal_poi":
                 POI poi = CurrentState.poi.Find(p => p.id == accion.poi_id);
                 if (poi != null) poi.status = "known";
+                if(poi.result == "false_alarm")
+                {
+                    FindObjectOfType<UnityGameVisualizer>()?.RemovePOIVisual(accion.poi_id);
+                }
                 break;
 
             case "rescue_victim":
@@ -286,6 +311,7 @@ public class GameStateManager : MonoBehaviour
                 Debug.LogWarning($"[GameStateManager] Acción no reconocida: {accion.type}");
                 break;
         }
+        hudManager?.RefreshHUD();
     }
 
     private void AbrirPuertaEnEstado(List<List<int>> between)
@@ -300,6 +326,7 @@ public class GameStateManager : MonoBehaviour
         if (puerta != null)
         {
             puerta.status = "open";
+            FindObjectOfType<UnityGameVisualizer>()?.OpenDoorVisual(doorId: puerta.id);
         }
     }
 
@@ -312,11 +339,15 @@ public class GameStateManager : MonoBehaviour
             (w.between[0][0] == x1 && w.between[0][1] == y1 && w.between[1][0] == x2 && w.between[1][1] == y2) ||
             (w.between[0][0] == x2 && w.between[0][1] == y2 && w.between[1][0] == x1 && w.between[1][1] == y1));
 
+        var visualizer = FindObjectOfType<UnityGameVisualizer>();
+
         if (existente != null)
         {
             CurrentState.walls.Remove(existente);
             RemoverBitDePared(x1, y1, x2, y2);
             CurrentState.game.damage++;
+            visualizer?.DestroyWallVisual(existente.id, new int[] { x1, y1 }, new int[] { x2, y2 });
+            hudManager?.RefreshHUD();
         }
         else
         {
@@ -326,6 +357,8 @@ public class GameStateManager : MonoBehaviour
                 between = new List<int[]> { new int[] { x1, y1 }, new int[] { x2, y2 } }
             });
             CurrentState.game.damage++;
+            visualizer?.DamageWallVisual(CurrentState.walls.Count, new int[] { x1, y1 }, new int[] { x2, y2 });
+            hudManager?.RefreshHUD();
         }
     }
 
